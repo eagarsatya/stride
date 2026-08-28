@@ -81,8 +81,12 @@ export const activities = pgTable(
     type: text().notNull(),
     subType: text(),
 
-    /** Wall-clock start in the activity's own timezone. */
-    startDateLocal: timestamp({ withTimezone: false }).notNull(),
+    /**
+     * Wall-clock start in the activity's own timezone. Kept in `string` mode so
+     * the value is stored verbatim -- letting Drizzle marshal a JS `Date` here
+     * would shift the time by the server's UTC offset.
+     */
+    startDateLocal: timestamp({ withTimezone: false, mode: "string" }).notNull(),
     startDate: timestamp({ withTimezone: true }),
     timezone: text(),
 
@@ -126,6 +130,13 @@ export const activities = pgTable(
     /** Stream channels the upstream activity has, e.g. ["latlng","heartrate"]. */
     streamTypes: jsonb().$type<string[]>(),
     hasGps: boolean().default(false).notNull(),
+
+    /**
+     * Fastest time in seconds per PR distance, keyed by metres. Derived from
+     * full-resolution streams, so it stays null until the run is analyzed.
+     */
+    bestEfforts: jsonb().$type<Record<string, number>>(),
+    bestEffortsAt: timestamp({ withTimezone: true }),
 
     raw: jsonb().notNull(),
     syncedAt: timestamp({ withTimezone: true }).defaultNow().notNull(),

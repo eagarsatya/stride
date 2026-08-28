@@ -90,6 +90,8 @@ CREATE TABLE "activities" (
 	"device_name" text,
 	"stream_types" jsonb,
 	"has_gps" boolean DEFAULT false NOT NULL,
+	"best_efforts" jsonb,
+	"best_efforts_at" timestamp with time zone,
 	"raw" jsonb NOT NULL,
 	"synced_at" timestamp with time zone DEFAULT now() NOT NULL,
 	CONSTRAINT "activities_user_icu_activity_unique" UNIQUE("user_id","icu_activity_id")

@@ -1,5 +1,5 @@
 {
-  "id": "e22ea7a5-b0de-4a9e-ac1e-19b1c80b5579",
+  "id": "054cd677-cff9-49a4-829f-56b2c9c70434",
   "prevId": "00000000-0000-0000-0000-000000000000",
   "version": "7",
   "dialect": "postgresql",
@@ -614,6 +614,18 @@
           "primaryKey": false,
           "notNull": true,
           "default": false
+        },
+        "best_efforts": {
+          "name": "best_efforts",
+          "type": "jsonb",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "best_efforts_at": {
+          "name": "best_efforts_at",
+          "type": "timestamp with time zone",
+          "primaryKey": false,
+          "notNull": false
         },
         "raw": {
           "name": "raw",
