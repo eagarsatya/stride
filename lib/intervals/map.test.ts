@@ -62,8 +62,10 @@ describe("activitySchema", () => {
   });
 
   it("rejects a payload with no start date", () => {
-    const { start_date_local: _omitted, ...rest } = RAW_RUN;
-    expect(activitySchema.safeParse(rest).success).toBe(false);
+    const withoutStart: Record<string, unknown> = { ...RAW_RUN };
+    delete withoutStart.start_date_local;
+
+    expect(activitySchema.safeParse(withoutStart).success).toBe(false);
   });
 });
 
