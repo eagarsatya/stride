@@ -30,6 +30,9 @@ export const auth = betterAuth({
     },
   },
   account: {
+    // 1.7 requires an explicit strategy. provider-id stores namespaces like
+    // `local:oauth:google` and matches a fresh schema without a 1.6 backfill.
+    identityStrategy: "provider-id",
     accountLinking: {
       enabled: true,
     },

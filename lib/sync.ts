@@ -347,7 +347,7 @@ export async function ensureStreams(
     .select({
       id: activities.id,
       icuActivityId: activities.icuActivityId,
-      streamTypes: activities.streamTypes,
+      bestEffortsAt: activities.bestEffortsAt,
     })
     .from(activities)
     .where(and(eq(activities.id, activityId), eq(activities.userId, userId)))
@@ -361,16 +361,35 @@ export async function ensureStreams(
     .where(eq(activityStreams.activityId, activity.id))
     .limit(1);
 
-  if (cached) return cached.data;
+  if (cached) {
+    // Streams cached before best efforts existed: derive them from the stored
+    // (downsampled) samples rather than spending another API request. Marking
+    // the row either way is what stops `analyzeBestEfforts` from looping.
+    if (!activity.bestEffortsAt) {
+      await markAnalyzed(
+        activity.id,
+        computeBestEfforts(cached.data.distance, cached.data.time),
+      );
+    }
+    return cached.data;
+  }
 
   const connection = await getConnection(userId);
   if (!connection) throw new NotConnectedError();
 
   const client = clientForConnection(connection);
   const streams = usableStreams(await client.getStreams(activity.icuActivityId));
-  if (streams.length === 0) return null;
+
+  if (streams.length === 0) {
+    // Treadmill runs and manual entries have no streams at all. Record the
+    // attempt so this activity is not retried forever.
+    await markAnalyzed(activity.id, {});
+    return null;
+  }
 
   const byType = new Map(streams.map((stream) => [stream.type, stream.data]));
+  // Computed before downsampling: quantised split boundaries would report times
+  // that were never actually run.
   const bestEfforts = computeBestEfforts(byType.get("distance"), byType.get("time"));
 
   const { data, pointCount } = mapStreams(streams);
@@ -383,12 +402,16 @@ export async function ensureStreams(
       set: { data, pointCount, fetchedAt: new Date() },
     });
 
+  await markAnalyzed(activity.id, bestEfforts);
+
+  return data;
+}
+
+async function markAnalyzed(activityId: string, bestEfforts: Record<string, number>) {
   await db
     .update(activities)
     .set({ bestEfforts, bestEffortsAt: new Date() })
-    .where(eq(activities.id, activity.id));
-
-  return data;
+    .where(eq(activities.id, activityId));
 }
 
 /**
@@ -399,7 +422,7 @@ export async function analyzeBestEfforts(
   userId: string,
   limit = 25,
 ): Promise<{ analyzed: number; remaining: number }> {
-  const pending = await db
+  const batch = await db
     .select({ id: activities.id })
     .from(activities)
     .where(
@@ -410,9 +433,8 @@ export async function analyzeBestEfforts(
       ),
     )
     .orderBy(desc(activities.startDateLocal))
-    .limit(limit + 1);
+    .limit(limit);
 
-  const batch = pending.slice(0, limit);
   let analyzed = 0;
 
   for (const activity of batch) {
@@ -421,10 +443,7 @@ export async function analyzeBestEfforts(
       analyzed += 1;
     } catch {
       // Mark it attempted so one broken activity cannot stall the queue.
-      await db
-        .update(activities)
-        .set({ bestEffortsAt: new Date(), bestEfforts: {} })
-        .where(eq(activities.id, activity.id));
+      await markAnalyzed(activity.id, {});
     }
   }
 

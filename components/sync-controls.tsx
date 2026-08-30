@@ -5,8 +5,8 @@ import { useRouter } from "next/navigation";
 import { useState, type ReactNode } from "react";
 import { toast } from "sonner";
 
-import type { ActionState } from "@/app/(app)/settings/connections/actions";
 import { Button } from "@/components/ui/button";
+import type { ActionState } from "@/lib/action-state";
 
 type Variant = "default" | "outline" | "ghost" | "destructive" | "secondary";
 

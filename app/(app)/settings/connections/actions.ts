@@ -6,19 +6,13 @@ import { z } from "zod";
 
 import { db } from "@/db";
 import { activities, connections, wellness } from "@/db/schema/app";
+import type { ActionState } from "@/lib/action-state";
 import { INTERVALS_PROVIDER, getConnection } from "@/lib/connections";
 import { seal } from "@/lib/crypto";
 import { IntervalsClient } from "@/lib/intervals/client";
 import { describeIntervalsError } from "@/lib/intervals/errors";
 import { requireUser } from "@/lib/session";
 import { NotConnectedError, SyncBusyError, runSync } from "@/lib/sync";
-
-export type ActionState = {
-  status: "idle" | "success" | "error";
-  message?: string;
-};
-
-export const IDLE: ActionState = { status: "idle" };
 
 /**
  * Intervals.icu keys are short lowercase alphanumeric strings. The bounds are

@@ -4,10 +4,11 @@ import { ExternalLink, Loader2 } from "lucide-react";
 import { useActionState, useEffect } from "react";
 import { toast } from "sonner";
 
-import { IDLE, connectIntervals } from "@/app/(app)/settings/connections/actions";
+import { connectIntervals } from "@/app/(app)/settings/connections/actions";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
+import { IDLE } from "@/lib/action-state";
 
 export function ConnectIntervalsForm({ connected }: { connected: boolean }) {
   const [state, formAction, pending] = useActionState(connectIntervals, IDLE);

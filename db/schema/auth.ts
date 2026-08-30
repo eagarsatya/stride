@@ -1,5 +1,5 @@
 import { relations } from "drizzle-orm";
-import { boolean, index, pgTable, text, timestamp } from "drizzle-orm/pg-core";
+import { boolean, index, pgTable, text, timestamp, unique } from "drizzle-orm/pg-core";
 
 /**
  * Better Auth core schema.
@@ -51,6 +51,8 @@ export const account = pgTable(
     userId: text("user_id")
       .notNull()
       .references(() => user.id, { onDelete: "cascade" }),
+    /** Identity namespace. With `identityStrategy: "provider-id"` this is e.g. `local:oauth:google`. */
+    issuer: text("issuer").notNull(),
     accessToken: text("access_token"),
     refreshToken: text("refresh_token"),
     idToken: text("id_token"),
@@ -64,7 +66,10 @@ export const account = pgTable(
       .$onUpdate(() => new Date())
       .notNull(),
   },
-  (t) => [index("account_user_id_idx").on(t.userId)],
+  (t) => [
+    index("account_user_id_idx").on(t.userId),
+    unique("account_issuer_accountId_uidx").on(t.issuer, t.accountId),
+  ],
 );
 
 export const verification = pgTable(
