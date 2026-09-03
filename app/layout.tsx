@@ -18,12 +18,17 @@ const geistMono = Geist_Mono({
 });
 
 export const metadata: Metadata = {
+  applicationName: "Stride",
   title: {
     default: "Stride — Running Dashboard",
     template: "%s · Stride",
   },
   description:
     "Track your running with data synced from your COROS watch through Intervals.icu.",
+  icons: {
+    icon: [{ url: "/icon.svg", type: "image/svg+xml" }],
+    apple: [{ url: "/apple-icon.png" }],
+  },
 };
 
 export default function RootLayout({ children }: LayoutProps<"/">) {
