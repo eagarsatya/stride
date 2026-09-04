@@ -11,6 +11,8 @@ import {
   type NewActivity,
 } from "@/db/schema/app";
 import { clientForConnection, getConnection } from "@/lib/connections";
+import { isFitUploadId } from "@/lib/fit/match";
+import { FIT_SOURCE } from "@/lib/fit/parse";
 import { toApiDate, type IntervalsClient } from "@/lib/intervals/client";
 import { mapActivity, mapStreams, mapWellness } from "@/lib/intervals/map";
 import { isRunType, usableStreams } from "@/lib/intervals/schemas";
@@ -347,6 +349,7 @@ export async function ensureStreams(
     .select({
       id: activities.id,
       icuActivityId: activities.icuActivityId,
+      source: activities.source,
       bestEffortsAt: activities.bestEffortsAt,
     })
     .from(activities)
@@ -366,12 +369,15 @@ export async function ensureStreams(
     // (downsampled) samples rather than spending another API request. Marking
     // the row either way is what stops `analyzeBestEfforts` from looping.
     if (!activity.bestEffortsAt) {
-      await markAnalyzed(
-        activity.id,
-        computeBestEfforts(cached.data.distance, cached.data.time),
-      );
+      await markAnalyzed(activity.id, computeBestEfforts(cached.data.distance, cached.data.time));
     }
     return cached.data;
+  }
+
+  // Uploaded FIT files never exist on Intervals.icu; streams are written at import.
+  if (activity.source === FIT_SOURCE || isFitUploadId(activity.icuActivityId)) {
+    if (!activity.bestEffortsAt) await markAnalyzed(activity.id, {});
+    return null;
   }
 
   const connection = await getConnection(userId);

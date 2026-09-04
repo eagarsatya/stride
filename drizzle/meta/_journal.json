@@ -15,6 +15,13 @@
       "when": 1788076266231,
       "tag": "0001_account_issuer",
       "breakpoints": true
+    },
+    {
+      "idx": 2,
+      "version": "7",
+      "when": 1788494600682,
+      "tag": "0002_fit_file_hash",
+      "breakpoints": true
     }
   ]
 }

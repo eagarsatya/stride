@@ -2,17 +2,12 @@ import { CheckCircle2, CircleAlert, ExternalLink, Info } from "lucide-react";
 import { desc, eq, sql } from "drizzle-orm";
 
 import { ConnectIntervalsForm } from "@/components/connect-intervals-form";
+import { FitImportForm } from "@/components/fit-import-form";
 import { PageHeader } from "@/components/page-header";
 import { DangerControls, SyncControls } from "@/components/sync-controls";
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
 import { Badge } from "@/components/ui/badge";
-import {
-  Card,
-  CardContent,
-  CardDescription,
-  CardHeader,
-  CardTitle,
-} from "@/components/ui/card";
+import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Separator } from "@/components/ui/separator";
 import { db } from "@/db";
 import { activities, syncJobs } from "@/db/schema/app";
@@ -24,6 +19,7 @@ import {
   backfillHistory,
   deleteAllData,
   disconnectIntervals,
+  importFitFiles,
   syncNow,
 } from "./actions";
 
@@ -61,7 +57,7 @@ export default async function ConnectionsPage() {
     <>
       <PageHeader
         title="Connections"
-        description="Link Intervals.icu so Stride can pull your COROS runs."
+        description="Link Intervals.icu so Stride can pull your COROS runs, or import .fit files directly."
       />
 
       <div className="grid gap-6 lg:grid-cols-3">
@@ -100,7 +96,7 @@ export default async function ConnectionsPage() {
                 <>
                   <Separator />
                   <div className="space-y-3">
-                    <div className="text-muted-foreground flex flex-wrap gap-x-6 gap-y-1 text-sm">
+                    <div className="flex flex-wrap gap-x-6 gap-y-1 text-sm text-muted-foreground">
                       <span>
                         Last sync:{" "}
                         <span className="text-foreground">
@@ -108,8 +104,7 @@ export default async function ConnectionsPage() {
                         </span>
                       </span>
                       <span>
-                        Runs stored:{" "}
-                        <span className="text-foreground">{stats?.count ?? 0}</span>
+                        Runs stored: <span className="text-foreground">{stats?.count ?? 0}</span>
                       </span>
                       <span>
                         Total distance:{" "}
@@ -119,13 +114,26 @@ export default async function ConnectionsPage() {
                       </span>
                     </div>
                     <SyncControls onSyncNow={syncNow} onBackfill={backfillHistory} />
-                    <p className="text-muted-foreground text-xs">
-                      A nightly job keeps this current. Backfill walks three years of
-                      history in six-month windows and is safe to re-run.
+                    <p className="text-xs text-muted-foreground">
+                      A nightly job keeps this current. Backfill walks three years of history in
+                      six-month windows and is safe to re-run.
                     </p>
                   </div>
                 </>
               ) : null}
+            </CardContent>
+          </Card>
+
+          <Card>
+            <CardHeader>
+              <CardTitle>COROS FIT import</CardTitle>
+              <CardDescription>
+                Zip a folder of COROS .fit exports and upload it in one go. Matching runs already
+                synced from Intervals.icu are enriched instead of duplicated.
+              </CardDescription>
+            </CardHeader>
+            <CardContent>
+              <FitImportForm importFitFiles={importFitFiles} />
             </CardContent>
           </Card>
 
@@ -154,7 +162,7 @@ export default async function ConnectionsPage() {
                       </Badge>
                       <span className="text-muted-foreground">{job.kind}</span>
                     </div>
-                    <div className="text-muted-foreground flex items-center gap-4">
+                    <div className="flex items-center gap-4 text-muted-foreground">
                       <span>{job.activitiesUpserted} runs</span>
                       <span>
                         {job.windowsDone}/{job.windowsTotal} windows
@@ -162,7 +170,7 @@ export default async function ConnectionsPage() {
                       <span>{formatRelative(job.startedAt)}</span>
                     </div>
                     {job.error ? (
-                      <p className="text-destructive w-full text-xs">{job.error}</p>
+                      <p className="w-full text-xs text-destructive">{job.error}</p>
                     ) : null}
                   </div>
                 ))}
@@ -179,10 +187,7 @@ export default async function ConnectionsPage() {
                 </CardDescription>
               </CardHeader>
               <CardContent>
-                <DangerControls
-                  onDisconnect={disconnectIntervals}
-                  onDeleteAll={deleteAllData}
-                />
+                <DangerControls onDisconnect={disconnectIntervals} onDeleteAll={deleteAllData} />
               </CardContent>
             </Card>
           ) : null}
@@ -193,32 +198,37 @@ export default async function ConnectionsPage() {
             <CardHeader>
               <CardTitle className="text-base">Before you connect</CardTitle>
             </CardHeader>
-            <CardContent className="text-muted-foreground space-y-4 text-sm">
+            <CardContent className="space-y-4 text-sm text-muted-foreground">
               <div>
-                <p className="text-foreground font-medium">1. Link COROS to Intervals.icu</p>
+                <p className="font-medium text-foreground">1. Link COROS to Intervals.icu</p>
                 <p className="mt-1">
-                  In Intervals.icu open Settings → Connections and authorize COROS. Start
-                  from Intervals, not from the COROS app.
+                  In Intervals.icu open Settings → Connections and authorize COROS. Start from
+                  Intervals, not from the COROS app.
                 </p>
               </div>
               <div>
-                <p className="text-foreground font-medium">2. Skip the Strava link</p>
+                <p className="font-medium text-foreground">2. Skip the Strava link</p>
                 <p className="mt-1">
-                  If both COROS and Strava are connected you will get duplicate activities,
-                  and Strava-sourced data cannot be read back through the API.
+                  If both COROS and Strava are connected you will get duplicate activities, and
+                  Strava-sourced data cannot be read back through the API.
                 </p>
               </div>
               <div>
-                <p className="text-foreground font-medium">3. Create an API key</p>
+                <p className="font-medium text-foreground">3. Create an API key</p>
+                <p className="mt-1">Settings → Developer Settings → API key. Paste it here.</p>
+              </div>
+              <div>
+                <p className="font-medium text-foreground">4. Or import a FIT zip</p>
                 <p className="mt-1">
-                  Settings → Developer Settings → API key. Paste it here.
+                  Export activities as .fit from the COROS app, zip the folder, and upload it here.
+                  Use this for runs Intervals.icu missed, or to add GPS streams to a synced run.
                 </p>
               </div>
               <a
                 href="https://intervals.icu/settings"
                 target="_blank"
                 rel="noreferrer"
-                className="text-foreground inline-flex items-center gap-1 underline underline-offset-4"
+                className="inline-flex items-center gap-1 text-foreground underline underline-offset-4"
               >
                 Open Intervals.icu settings
                 <ExternalLink className="size-3" />
@@ -231,14 +241,12 @@ export default async function ConnectionsPage() {
               <CardHeader>
                 <CardTitle className="text-base">Stored history</CardTitle>
               </CardHeader>
-              <CardContent className="text-muted-foreground space-y-1 text-sm">
+              <CardContent className="space-y-1 text-sm text-muted-foreground">
                 <p>
-                  Oldest run:{" "}
-                  <span className="text-foreground">{formatDate(stats.oldest)}</span>
+                  Oldest run: <span className="text-foreground">{formatDate(stats.oldest)}</span>
                 </p>
                 <p>
-                  Newest run:{" "}
-                  <span className="text-foreground">{formatDate(stats.newest)}</span>
+                  Newest run: <span className="text-foreground">{formatDate(stats.newest)}</span>
                 </p>
               </CardContent>
             </Card>
@@ -248,10 +256,9 @@ export default async function ConnectionsPage() {
             <Info />
             <AlertTitle>Multi-user, without OAuth</AlertTitle>
             <AlertDescription>
-              Intervals.icu does not offer self-serve OAuth clients, so every user connects
-              with their own API key. The database already stores OAuth tokens, so a
-              &quot;Connect with Intervals.icu&quot; button can be added later without a
-              migration.
+              Intervals.icu does not offer self-serve OAuth clients, so every user connects with
+              their own API key. The database already stores OAuth tokens, so a &quot;Connect with
+              Intervals.icu&quot; button can be added later without a migration.
             </AlertDescription>
           </Alert>
         </div>

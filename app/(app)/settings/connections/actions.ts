@@ -12,6 +12,7 @@ import { seal } from "@/lib/crypto";
 import { IntervalsClient } from "@/lib/intervals/client";
 import { describeIntervalsError } from "@/lib/intervals/errors";
 import { requireUser } from "@/lib/session";
+import { importFitFilesForUser } from "@/lib/fit/import";
 import { NotConnectedError, SyncBusyError, runSync } from "@/lib/sync";
 
 /**
@@ -120,9 +121,7 @@ export async function disconnectIntervals(): Promise<ActionState> {
   // disconnecting is not destructive.
   await db
     .delete(connections)
-    .where(
-      and(eq(connections.userId, user.id), eq(connections.provider, INTERVALS_PROVIDER)),
-    );
+    .where(and(eq(connections.userId, user.id), eq(connections.provider, INTERVALS_PROVIDER)));
 
   revalidateAll();
   return { status: "success", message: "Disconnected. Your synced runs were kept." };
@@ -174,4 +173,30 @@ export async function syncNow(): Promise<ActionState> {
 
 export async function backfillHistory(): Promise<ActionState> {
   return sync("backfill");
+}
+
+export async function importFitFiles(formData: FormData): Promise<ActionState> {
+  const user = await requireUser();
+
+  const files = formData
+    .getAll("files")
+    .filter((value): value is File => value instanceof File && value.size > 0);
+
+  if (files.length === 0) {
+    return { status: "error", message: "Choose a .zip of .fit files, or one or more .fit files." };
+  }
+
+  try {
+    const result = await importFitFilesForUser(user.id, files);
+    revalidateAll();
+
+    const landed = result.imported + result.enriched + result.alreadyImported;
+
+    return {
+      status: landed > 0 ? "success" : "error",
+      message: result.message,
+    };
+  } catch {
+    return { status: "error", message: "Could not import those FIT files." };
+  }
 }

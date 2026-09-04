@@ -76,6 +76,11 @@ export const activities = pgTable(
     /** Upstream provenance, e.g. "COROS" or "UPLOAD". */
     source: text(),
     externalId: text(),
+    /**
+     * SHA-256 of an imported .fit file. Null for Intervals.icu-synced rows
+     * until a matching upload is used to enrich them.
+     */
+    fitFileHash: text(),
 
     name: text(),
     type: text().notNull(),
@@ -143,6 +148,7 @@ export const activities = pgTable(
   },
   (t) => [
     unique("activities_user_icu_activity_unique").on(t.userId, t.icuActivityId),
+    unique("activities_user_fit_file_hash_unique").on(t.userId, t.fitFileHash),
     index("activities_user_start_idx").on(t.userId, t.startDateLocal),
     index("activities_user_type_idx").on(t.userId, t.type),
   ],
