@@ -14,8 +14,70 @@ export const PR_LABELS: Record<string, string> = {
   "42195": "Marathon",
 };
 
+/** Compact labels for tab triggers and tight table headings. */
+export const PR_SHORT_LABELS: Record<string, string> = {
+  "1000": "1K",
+  "5000": "5K",
+  "10000": "10K",
+  "21097.5": "Half",
+  "42195": "Marathon",
+};
+
 /** Fastest time in seconds for each PR distance found in one activity. */
 export type BestEfforts = Record<string, number>;
+
+export type PersonalRecord = {
+  distanceM: number;
+  timeS: number;
+  activityId: string;
+  activityName: string | null;
+  date: string;
+  isRace: boolean;
+};
+
+export type EffortRow = {
+  id: string;
+  name: string | null;
+  date: string;
+  isRace: boolean;
+  bestEfforts: BestEfforts | null | undefined;
+};
+
+/**
+ * Fastest `limit` efforts at each PR distance. Ties break toward the more
+ * recent run so a matched time does not hide the latest attempt.
+ */
+export function rankPersonalRecords(
+  rows: EffortRow[],
+  limit = 10,
+  distances: readonly number[] = PR_DISTANCES,
+): Record<string, PersonalRecord[]> {
+  const lists: Record<string, PersonalRecord[]> = {};
+
+  for (const distance of distances) {
+    const key = String(distance);
+    const ranked: PersonalRecord[] = [];
+
+    for (const row of rows) {
+      const timeS = row.bestEfforts?.[key];
+      if (typeof timeS !== "number" || !Number.isFinite(timeS) || timeS <= 0) continue;
+
+      ranked.push({
+        distanceM: distance,
+        timeS,
+        activityId: row.id,
+        activityName: row.name,
+        date: row.date,
+        isRace: row.isRace,
+      });
+    }
+
+    ranked.sort((a, b) => a.timeS - b.timeS || b.date.localeCompare(a.date));
+    if (ranked.length > 0) lists[key] = ranked.slice(0, limit);
+  }
+
+  return lists;
+}
 
 function toNumberSeries(samples: unknown[] | undefined): number[] | null {
   if (!samples || samples.length === 0) return null;

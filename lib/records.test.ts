@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 
-import { computeBestEfforts } from "./records";
+import { computeBestEfforts, rankPersonalRecords } from "./records";
 
 /** Build distance/time streams for a run at a constant pace, sampled at 1 Hz. */
 function steadyRun(totalMetres: number, paceSPerKm: number) {
@@ -103,5 +103,44 @@ describe("computeBestEfforts", () => {
 
     expect(efforts["42195"]).toBeCloseTo(42.195 * 330, -1);
     expect(Object.keys(efforts)).toHaveLength(5);
+  });
+});
+
+describe("rankPersonalRecords", () => {
+  it("returns the fastest efforts first and caps the list", () => {
+    const lists = rankPersonalRecords(
+      [
+        { id: "a", name: "A", date: "2026-01-01", isRace: false, bestEfforts: { "5000": 1300 } },
+        { id: "b", name: "B", date: "2026-02-01", isRace: true, bestEfforts: { "5000": 1200 } },
+        { id: "c", name: "C", date: "2026-03-01", isRace: false, bestEfforts: { "5000": 1250 } },
+        { id: "d", name: "D", date: "2026-04-01", isRace: false, bestEfforts: { "5000": 1400 } },
+      ],
+      3,
+    );
+
+    expect(lists["5000"]?.map((row) => row.activityId)).toEqual(["b", "c", "a"]);
+    expect(lists["5000"]?.[0]?.isRace).toBe(true);
+    expect(lists["1000"]).toBeUndefined();
+  });
+
+  it("breaks tied times toward the more recent run", () => {
+    const lists = rankPersonalRecords([
+      { id: "old", name: "Old", date: "2024-01-01", isRace: false, bestEfforts: { "1000": 180 } },
+      { id: "new", name: "New", date: "2026-01-01", isRace: false, bestEfforts: { "1000": 180 } },
+    ]);
+
+    expect(lists["1000"]?.map((row) => row.activityId)).toEqual(["new", "old"]);
+  });
+
+  it("skips missing, non-finite, and non-positive times", () => {
+    const lists = rankPersonalRecords([
+      { id: "empty", name: "Empty", date: "2026-01-01", isRace: false, bestEfforts: null },
+      { id: "bad", name: "Bad", date: "2026-01-02", isRace: false, bestEfforts: { "1000": 0, "5000": Number.NaN } },
+      { id: "ok", name: "Ok", date: "2026-01-03", isRace: false, bestEfforts: { "1000": 190 } },
+    ]);
+
+    expect(lists["1000"]).toHaveLength(1);
+    expect(lists["1000"]?.[0]?.activityId).toBe("ok");
+    expect(lists["5000"]).toBeUndefined();
   });
 });

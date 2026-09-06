@@ -24,6 +24,18 @@ export function formatDuration(seconds: number | null | undefined): string {
   return hours > 0 ? `${hours}:${pad(minutes)}:${pad(secs)}` : `${minutes}:${pad(secs)}`;
 }
 
+/** Signed gap from a leader, e.g. "+12s" or "+1:03". Zero is "0s". */
+export function formatSignedDuration(seconds: number | null | undefined): string {
+  if (seconds == null || !Number.isFinite(seconds)) return EM_DASH;
+
+  const rounded = Math.round(seconds);
+  if (rounded === 0) return "0s";
+
+  const sign = rounded > 0 ? "+" : "−";
+  const absolute = Math.abs(rounded);
+  return absolute < 60 ? `${sign}${absolute}s` : `${sign}${formatDuration(absolute)}`;
+}
+
 /** Compact duration for summary tiles, e.g. "6h 12m" or "48m". */
 export function formatDurationCompact(seconds: number | null | undefined): string {
   if (seconds == null || !Number.isFinite(seconds) || seconds <= 0) return EM_DASH;

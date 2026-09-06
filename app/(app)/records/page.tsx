@@ -4,6 +4,7 @@ import Link from "next/link";
 import { AnalyzeRunsButton } from "@/components/analyze-runs-button";
 import { NoRunsState, NotConnectedState } from "@/components/empty-state";
 import { PageHeader } from "@/components/page-header";
+import { RecordsLeaderboards } from "@/components/records-leaderboards";
 import { StatCard } from "@/components/stat-card";
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
 import { Badge } from "@/components/ui/badge";
@@ -64,7 +65,7 @@ export default async function RecordsPage() {
     <>
       <PageHeader
         title="Records"
-        description="Bests pulled from your synced history."
+        description="Bests and the top ten in each category, pulled from your synced history."
       />
 
       {records.pendingAnalysis > 0 ? (
@@ -128,36 +129,36 @@ export default async function RecordsPage() {
       <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
         <StatCard
           label="Longest run"
-          value={formatKm(records.longestRun?.distanceM ?? null)}
+          value={formatKm(records.longestRuns[0]?.distanceM ?? null)}
           hint={
-            records.longestRun
-              ? `${records.longestRun.name?.trim() || "Untitled run"} · ${formatDate(records.longestRun.date)}`
+            records.longestRuns[0]
+              ? `${records.longestRuns[0].name?.trim() || "Untitled run"} · ${formatDate(records.longestRuns[0].date)}`
               : undefined
           }
           icon={Route}
         />
         <StatCard
           label="Biggest week"
-          value={formatKm(records.biggestWeek?.distanceM ?? null)}
+          value={formatKm(records.biggestWeeks[0]?.distanceM ?? null)}
           hint={
-            records.biggestWeek
-              ? `Week of ${formatDate(records.biggestWeek.weekStart)}`
+            records.biggestWeeks[0]
+              ? `Week of ${formatDate(records.biggestWeeks[0].key)}`
               : undefined
           }
           icon={CalendarRange}
         />
         <StatCard
           label="Biggest month"
-          value={formatKm(records.biggestMonth?.distanceM ?? null, 0)}
-          hint={records.biggestMonth?.month}
+          value={formatKm(records.biggestMonths[0]?.distanceM ?? null, 0)}
+          hint={records.biggestMonths[0]?.key}
           icon={CalendarRange}
         />
         <StatCard
           label="Most elevation"
-          value={formatElevation(records.mostElevation?.elevationM ?? null)}
+          value={formatElevation(records.mostElevation[0]?.elevationM ?? null)}
           hint={
-            records.mostElevation
-              ? `${records.mostElevation.name?.trim() || "Untitled run"} · ${formatDate(records.mostElevation.date)}`
+            records.mostElevation[0]
+              ? `${records.mostElevation[0].name?.trim() || "Untitled run"} · ${formatDate(records.mostElevation[0].date)}`
               : undefined
           }
           icon={Mountain}
@@ -175,6 +176,14 @@ export default async function RecordsPage() {
           icon={Trophy}
         />
       </div>
+
+      <RecordsLeaderboards
+        personalRecordLists={records.personalRecordLists}
+        longestRuns={records.longestRuns}
+        biggestWeeks={records.biggestWeeks}
+        biggestMonths={records.biggestMonths}
+        mostElevation={records.mostElevation}
+      />
 
       {records.races.length > 0 ? (
         <Card className="mt-10">

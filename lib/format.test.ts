@@ -4,6 +4,7 @@ import {
   EM_DASH,
   formatDuration,
   formatDurationCompact,
+  formatSignedDuration,
   formatKm,
   formatPace,
   formatPaceWithUnit,
@@ -45,6 +46,24 @@ describe("formatDuration", () => {
   it("rejects negative and missing values", () => {
     expect(formatDuration(-1)).toBe(EM_DASH);
     expect(formatDuration(null)).toBe(EM_DASH);
+  });
+});
+
+describe("formatSignedDuration", () => {
+  it("uses seconds for sub-minute gaps", () => {
+    expect(formatSignedDuration(12)).toBe("+12s");
+    expect(formatSignedDuration(-8.2)).toBe("−8s");
+    expect(formatSignedDuration(0)).toBe("0s");
+  });
+
+  it("uses clock format once the gap reaches a minute", () => {
+    expect(formatSignedDuration(63)).toBe("+1:03");
+    expect(formatSignedDuration(3723)).toBe("+1:02:03");
+  });
+
+  it("renders a dash for missing values", () => {
+    expect(formatSignedDuration(null)).toBe(EM_DASH);
+    expect(formatSignedDuration(Number.NaN)).toBe(EM_DASH);
   });
 });
 

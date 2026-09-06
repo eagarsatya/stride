@@ -3,7 +3,9 @@ import { and, desc, eq, isNotNull, sql } from "drizzle-orm";
 import { db } from "@/db";
 import { activities } from "@/db/schema/app";
 import { addDays, isoDay } from "@/lib/queries";
-import { PR_DISTANCES } from "@/lib/records";
+import { PR_DISTANCES, rankPersonalRecords, type PersonalRecord } from "@/lib/records";
+
+export type { PersonalRecord };
 
 export type MonthlyVolumePoint = {
   month: string;
@@ -149,33 +151,38 @@ export async function getZoneTotals(
   };
 }
 
-export type PersonalRecord = {
-  distanceM: number;
-  timeS: number;
+export type LongestRun = {
   activityId: string;
-  activityName: string | null;
+  name: string | null;
   date: string;
-  isRace: boolean;
+  distanceM: number;
+  movingTimeS: number | null;
+  paceSPerKm: number | null;
+};
+
+export type VolumePeriod = {
+  key: string;
+  distanceM: number;
+  runs: number;
+};
+
+export type ElevationRecord = {
+  activityId: string;
+  name: string | null;
+  date: string;
+  elevationM: number;
+  distanceM: number | null;
 };
 
 export type RecordsSummary = {
   personalRecords: PersonalRecord[];
+  personalRecordLists: Record<string, PersonalRecord[]>;
   analyzed: number;
   pendingAnalysis: number;
-  longestRun: {
-    activityId: string;
-    name: string | null;
-    date: string;
-    distanceM: number;
-  } | null;
-  biggestWeek: { weekStart: string; distanceM: number } | null;
-  biggestMonth: { month: string; distanceM: number } | null;
-  mostElevation: {
-    activityId: string;
-    name: string | null;
-    date: string;
-    elevationM: number;
-  } | null;
+  longestRuns: LongestRun[];
+  biggestWeeks: VolumePeriod[];
+  biggestMonths: VolumePeriod[];
+  mostElevation: ElevationRecord[];
   races: Array<{
     activityId: string;
     name: string | null;
@@ -213,11 +220,13 @@ export async function getRecords(userId: string): Promise<RecordsSummary> {
         name: activities.name,
         date: sql<string>`to_char(${activities.startDateLocal}, 'YYYY-MM-DD')`,
         distanceM: activities.distanceM,
+        movingTimeS: activities.movingTimeS,
+        paceSPerKm: activities.paceSPerKm,
       })
       .from(activities)
       .where(and(eq(activities.userId, userId), isNotNull(activities.distanceM)))
       .orderBy(desc(activities.distanceM))
-      .limit(1),
+      .limit(10),
 
     db
       .select({
@@ -225,33 +234,36 @@ export async function getRecords(userId: string): Promise<RecordsSummary> {
         name: activities.name,
         date: sql<string>`to_char(${activities.startDateLocal}, 'YYYY-MM-DD')`,
         elevationM: activities.elevationGainM,
+        distanceM: activities.distanceM,
       })
       .from(activities)
       .where(and(eq(activities.userId, userId), isNotNull(activities.elevationGainM)))
       .orderBy(desc(activities.elevationGainM))
-      .limit(1),
+      .limit(10),
 
     db
       .select({
         weekStart: sql<string>`to_char(date_trunc('week', ${activities.startDateLocal}), 'YYYY-MM-DD')`,
         distance: sql<number>`coalesce(sum(${activities.distanceM}), 0)::float8`,
+        runs: sql<number>`count(*)::int`,
       })
       .from(activities)
       .where(eq(activities.userId, userId))
       .groupBy(sql`1`)
       .orderBy(sql`2 desc`)
-      .limit(1),
+      .limit(10),
 
     db
       .select({
         month: sql<string>`to_char(date_trunc('month', ${activities.startDateLocal}), 'YYYY-MM')`,
         distance: sql<number>`coalesce(sum(${activities.distanceM}), 0)::float8`,
+        runs: sql<number>`count(*)::int`,
       })
       .from(activities)
       .where(eq(activities.userId, userId))
       .groupBy(sql`1`)
       .orderBy(sql`2 desc`)
-      .limit(1),
+      .limit(10),
 
     db
       .select({
@@ -268,58 +280,42 @@ export async function getRecords(userId: string): Promise<RecordsSummary> {
       .limit(20),
   ]);
 
-  // Reduce in memory rather than five separate min() queries over a jsonb column.
-  const personalRecords: PersonalRecord[] = [];
-
-  for (const distance of PR_DISTANCES) {
-    const key = String(distance);
-    let best: PersonalRecord | null = null;
-
-    for (const row of efforts) {
-      const timeS = row.bestEfforts?.[key];
-      if (typeof timeS !== "number" || !Number.isFinite(timeS) || timeS <= 0) continue;
-
-      if (!best || timeS < best.timeS) {
-        best = {
-          distanceM: distance,
-          timeS,
-          activityId: row.id,
-          activityName: row.name,
-          date: row.date,
-          isRace: row.isRace,
-        };
-      }
-    }
-
-    if (best) personalRecords.push(best);
-  }
+  // Rank in memory rather than five separate jsonb min() queries.
+  const personalRecordLists = rankPersonalRecords(efforts);
+  const personalRecords = PR_DISTANCES.flatMap(
+    (distance) => personalRecordLists[String(distance)]?.slice(0, 1) ?? [],
+  );
 
   return {
     personalRecords,
+    personalRecordLists,
     analyzed: counts[0]?.analyzed ?? 0,
     pendingAnalysis: counts[0]?.pending ?? 0,
-    longestRun: longest[0]
-      ? {
-          activityId: longest[0].id,
-          name: longest[0].name,
-          date: longest[0].date,
-          distanceM: longest[0].distanceM ?? 0,
-        }
-      : null,
-    mostElevation: elevation[0]
-      ? {
-          activityId: elevation[0].id,
-          name: elevation[0].name,
-          date: elevation[0].date,
-          elevationM: elevation[0].elevationM ?? 0,
-        }
-      : null,
-    biggestWeek: weeks[0]
-      ? { weekStart: weeks[0].weekStart, distanceM: weeks[0].distance }
-      : null,
-    biggestMonth: months[0]
-      ? { month: months[0].month, distanceM: months[0].distance }
-      : null,
+    longestRuns: longest.map((row) => ({
+      activityId: row.id,
+      name: row.name,
+      date: row.date,
+      distanceM: row.distanceM ?? 0,
+      movingTimeS: row.movingTimeS,
+      paceSPerKm: row.paceSPerKm,
+    })),
+    mostElevation: elevation.map((row) => ({
+      activityId: row.id,
+      name: row.name,
+      date: row.date,
+      elevationM: row.elevationM ?? 0,
+      distanceM: row.distanceM,
+    })),
+    biggestWeeks: weeks.map((row) => ({
+      key: row.weekStart,
+      distanceM: row.distance,
+      runs: row.runs,
+    })),
+    biggestMonths: months.map((row) => ({
+      key: row.month,
+      distanceM: row.distance,
+      runs: row.runs,
+    })),
     races: races.map((race) => ({
       activityId: race.id,
       name: race.name,
