@@ -7,12 +7,13 @@ import { PageHeader } from "@/components/page-header";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
 import { getConnection } from "@/lib/connections";
-import { formatKm } from "@/lib/format";
+import { formatDate, formatKm } from "@/lib/format";
 import {
   ACTIVITY_RANGES,
   ACTIVITY_SORTS,
   DEFAULT_FILTERS,
   getActivities,
+  parseIsoDay,
   type ActivityFilters,
   type ActivityRange,
   type ActivitySort,
@@ -33,9 +34,14 @@ function parseFilters(params: Record<string, string | string[] | undefined>): Ac
   const direction = single("dir");
   const page = Number(single("page") ?? "1");
   const type = single("type") ?? DEFAULT_FILTERS.type;
+  const resolvedRange =
+    range && range in ACTIVITY_RANGES ? (range as ActivityRange) : DEFAULT_FILTERS.range;
+  const custom = resolvedRange === "custom";
 
   return {
-    range: range && range in ACTIVITY_RANGES ? (range as ActivityRange) : DEFAULT_FILTERS.range,
+    range: resolvedRange,
+    from: custom ? parseIsoDay(single("from")) : null,
+    to: custom ? parseIsoDay(single("to")) : null,
     type: ["all", "Run", "TrailRun", "VirtualRun"].includes(type) ? type : "all",
     raceOnly: single("race") === "1",
     sort: sort && sort in ACTIVITY_SORTS ? (sort as ActivitySort) : DEFAULT_FILTERS.sort,
@@ -54,8 +60,20 @@ function pageHref(filters: ActivityFilters, page: number) {
     page: String(page),
   });
   if (filters.raceOnly) params.set("race", "1");
+  if (filters.range === "custom") {
+    if (filters.from) params.set("from", filters.from);
+    if (filters.to) params.set("to", filters.to);
+  }
 
   return `/activities?${params.toString()}`;
+}
+
+function rangeLabel(filters: ActivityFilters): string {
+  if (filters.range !== "custom") return ACTIVITY_RANGES[filters.range].label;
+  if (filters.from && filters.to) return `${formatDate(filters.from)} – ${formatDate(filters.to)}`;
+  if (filters.from) return `From ${formatDate(filters.from)}`;
+  if (filters.to) return `Until ${formatDate(filters.to)}`;
+  return ACTIVITY_RANGES.all.label;
 }
 
 export default async function ActivitiesPage({ searchParams }: PageProps<"/activities">) {
@@ -85,7 +103,7 @@ export default async function ActivitiesPage({ searchParams }: PageProps<"/activ
         title="Activities"
         description={
           total > 0
-            ? `${total} runs in this range · ${formatKm(totalDistance, 0, unit)} on this page`
+            ? `${total} runs · ${rangeLabel(filters)} · ${formatKm(totalDistance, 0, unit)} on this page`
             : undefined
         }
       />
