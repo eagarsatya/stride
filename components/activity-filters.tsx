@@ -3,6 +3,7 @@
 import { useRouter, useSearchParams } from "next/navigation";
 import { useCallback, useTransition } from "react";
 
+import { useBusyEffect } from "@/components/busy-overlay";
 import { Button } from "@/components/ui/button";
 import {
   Select,
@@ -25,6 +26,7 @@ export function ActivityFilterBar({ filters }: { filters: ActivityFilters }) {
   const router = useRouter();
   const searchParams = useSearchParams();
   const [pending, startTransition] = useTransition();
+  useBusyEffect(pending, { message: "Updating filters…" });
 
   const update = useCallback(
     (changes: Record<string, string | null>) => {

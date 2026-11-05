@@ -1,6 +1,7 @@
 import type { Metadata } from "next";
 import { Geist, Geist_Mono } from "next/font/google";
 
+import { BusyProvider } from "@/components/busy-overlay";
 import { ThemeProvider } from "@/components/theme-provider";
 import { Toaster } from "@/components/ui/sonner";
 import { TooltipProvider } from "@/components/ui/tooltip";
@@ -45,7 +46,9 @@ export default function RootLayout({ children }: LayoutProps<"/">) {
           enableSystem
           disableTransitionOnChange
         >
-          <TooltipProvider>{children}</TooltipProvider>
+          <BusyProvider>
+            <TooltipProvider>{children}</TooltipProvider>
+          </BusyProvider>
           <Toaster richColors position="top-center" />
         </ThemeProvider>
       </body>

@@ -3,7 +3,9 @@
 import { ArrowDown, ArrowUp, ChevronsUpDown } from "lucide-react";
 import Link from "next/link";
 import { useRouter, useSearchParams } from "next/navigation";
+import { useTransition } from "react";
 
+import { useBusyEffect } from "@/components/busy-overlay";
 import { Badge } from "@/components/ui/badge";
 import {
   Table,
@@ -54,6 +56,8 @@ export function ActivityTable({
 }) {
   const router = useRouter();
   const searchParams = useSearchParams();
+  const [pending, startTransition] = useTransition();
+  useBusyEffect(pending, { message: "Sorting…" });
 
   function sortBy(key: ActivitySort) {
     const params = new URLSearchParams(searchParams.toString());
@@ -65,7 +69,7 @@ export function ActivityTable({
     params.set("dir", direction);
     params.delete("page");
 
-    router.push(`/activities?${params.toString()}`);
+    startTransition(() => router.push(`/activities?${params.toString()}`));
   }
 
   return (
