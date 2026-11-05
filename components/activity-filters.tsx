@@ -4,8 +4,8 @@ import { useRouter, useSearchParams } from "next/navigation";
 import { useCallback, useTransition } from "react";
 
 import { useBusyEffect } from "@/components/busy-overlay";
+import { DateRangePicker } from "@/components/date-range-picker";
 import { Button } from "@/components/ui/button";
-import { Input } from "@/components/ui/input";
 import {
   Select,
   SelectContent,
@@ -87,25 +87,11 @@ export function ActivityFilterBar({ filters }: { filters: ActivityFilters }) {
       </Select>
 
       {filters.range === "custom" ? (
-        <>
-          <Input
-            type="date"
-            aria-label="From date"
-            className="w-40"
-            value={filters.from ?? ""}
-            max={filters.to ?? undefined}
-            onChange={(event) => update({ range: "custom", from: event.target.value || null })}
-          />
-          <span className="text-muted-foreground px-0.5 text-sm">to</span>
-          <Input
-            type="date"
-            aria-label="To date"
-            className="w-40"
-            value={filters.to ?? ""}
-            min={filters.from ?? undefined}
-            onChange={(event) => update({ range: "custom", to: event.target.value || null })}
-          />
-        </>
+        <DateRangePicker
+          from={filters.from}
+          to={filters.to}
+          onChange={({ from, to }) => update({ range: "custom", from, to })}
+        />
       ) : null}
 
       <Select value={filters.type} onValueChange={(value) => update({ type: value })}>
