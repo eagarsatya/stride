@@ -6,6 +6,7 @@ import {
   formatDurationCompact,
   formatSignedDuration,
   formatKm,
+  formatSplitDistance,
   formatPace,
   formatPaceWithUnit,
   parseLocalTimestamp,
@@ -28,6 +29,14 @@ describe("formatKm", () => {
     expect(formatKm(0)).toBe("0.0 km");
     expect(toKm(0)).toBe(0);
     expect(toKm(null)).toBeNull();
+  });
+});
+
+describe("formatSplitDistance", () => {
+  it("uses metres under a kilometre and km above", () => {
+    expect(formatSplitDistance(400)).toBe("400 m");
+    expect(formatSplitDistance(1000)).toBe("1.00 km");
+    expect(formatSplitDistance(null)).toBe(EM_DASH);
   });
 });
 

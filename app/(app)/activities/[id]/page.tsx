@@ -6,6 +6,7 @@ import { PaceHrChart } from "@/components/charts/pace-hr-chart";
 import { PageHeader } from "@/components/page-header";
 import { RouteMap } from "@/components/route-map";
 import { SplitsTable } from "@/components/splits-table";
+import { TrainingTable } from "@/components/training-table";
 import { ZoneBars } from "@/components/zone-bars";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
@@ -30,9 +31,10 @@ import {
 import { getActivityDetail, getActivityNeighbours } from "@/lib/queries";
 import { requireUser } from "@/lib/session";
 import { boundsOf, buildSeries, computeSplits, toRouteLine } from "@/lib/splits";
-import { ensureStreams } from "@/lib/sync";
+import { ensureStreams, ensureTrainingSteps } from "@/lib/sync";
+import { isStructuredTraining, type TrainingStep } from "@/lib/training";
 
-/** Streams are fetched from Intervals.icu on first view, then cached. */
+/** Streams and workout steps are fetched from Intervals.icu on first view. */
 export const maxDuration = 60;
 
 export async function generateMetadata({ params }: PageProps<"/activities/[id]">) {
@@ -84,6 +86,14 @@ export default async function ActivityDetailPage({ params }: PageProps<"/activit
   const series = buildSeries(streams);
   const line = toRouteLine(streams);
   const bounds = boundsOf(line);
+
+  let trainingSteps: TrainingStep[] = [];
+  try {
+    trainingSteps = await ensureTrainingSteps(user.id, activity.id);
+  } catch {
+    trainingSteps = [];
+  }
+  const showTraining = isStructuredTraining(trainingSteps);
 
   const typeLabel =
     activity.type === "TrailRun" ? "Trail" : activity.type === "VirtualRun" ? "Virtual" : "Road";
@@ -274,11 +284,17 @@ export default async function ActivityDetailPage({ params }: PageProps<"/activit
 
       <Card className="mt-6">
         <CardContent className="pt-6">
-          <Tabs defaultValue="splits">
+          <Tabs defaultValue={showTraining ? "training" : "splits"}>
             <TabsList>
-              <TabsTrigger value="splits">Splits</TabsTrigger>
+              {showTraining ? <TabsTrigger value="training">Training</TabsTrigger> : null}
+              <TabsTrigger value="splits">{showTraining ? "Per km" : "Splits"}</TabsTrigger>
               <TabsTrigger value="zones">Zones</TabsTrigger>
             </TabsList>
+            {showTraining ? (
+              <TabsContent value="training" className="mt-4">
+                <TrainingTable steps={trainingSteps} />
+              </TabsContent>
+            ) : null}
             <TabsContent value="splits" className="mt-4">
               <SplitsTable splits={splits} />
             </TabsContent>

@@ -18,6 +18,20 @@ import { user } from "./auth";
 export const syncKind = pgEnum("sync_kind", ["backfill", "incremental", "manual"]);
 export const syncStatus = pgEnum("sync_status", ["queued", "running", "success", "error"]);
 
+/** One step in a structured workout (warmup, work, rest, …) or a device lap. */
+export type TrainingStep = {
+  /** 1-based step number after wrappers and autolaps are dropped. */
+  index: number;
+  label: string | null;
+  type: string | null;
+  groupLabel: string | null;
+  distanceM: number | null;
+  elapsedS: number | null;
+  paceSPerKm: number | null;
+  avgHr: number | null;
+  maxHr: number | null;
+};
+
 /**
  * A user's link to an upstream training platform.
  *
@@ -142,6 +156,13 @@ export const activities = pgTable(
      */
     bestEfforts: jsonb().$type<Record<string, number>>(),
     bestEffortsAt: timestamp({ withTimezone: true }),
+
+    /**
+     * Workout steps from Intervals.icu or a FIT import. Fetched lazily and
+     * absent from the sync upsert so a re-sync cannot wipe them.
+     */
+    trainingSteps: jsonb().$type<TrainingStep[]>(),
+    trainingStepsAt: timestamp({ withTimezone: true }),
 
     raw: jsonb().notNull(),
     syncedAt: timestamp({ withTimezone: true }).defaultNow().notNull(),

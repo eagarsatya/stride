@@ -5,6 +5,13 @@ export function formatKm(metres: number | null | undefined, digits = 1): string 
   return `${(metres / 1000).toFixed(digits)} km`;
 }
 
+/** Workout steps often sit well under a kilometre, so show metres there. */
+export function formatSplitDistance(metres: number | null | undefined): string {
+  if (metres == null || !Number.isFinite(metres)) return EM_DASH;
+  if (metres < 950) return `${Math.round(metres)} m`;
+  return formatKm(metres, 2);
+}
+
 /** Bare kilometre number, for chart axes and tight table cells. */
 export function toKm(metres: number | null | undefined, digits = 1): number | null {
   if (metres == null || !Number.isFinite(metres)) return null;

@@ -111,14 +111,17 @@ export type IntervalsActivity = z.infer<typeof activitySchema>;
 
 export const activityListSchema = z.array(z.unknown());
 
-/** A lap or interval inside an activity, used for the splits table. */
+/** A lap or interval inside an activity, used for the training-set table. */
 export const intervalSchema = z.looseObject({
+  id: num(),
   label: str(),
   type: str(),
+  group_id: num(),
   distance: num(),
   moving_time: num(),
   elapsed_time: num(),
   average_speed: num(),
+  average_pace: num(),
   gap: num(),
   average_heartrate: num(),
   max_heartrate: num(),
@@ -130,8 +133,24 @@ export const intervalSchema = z.looseObject({
 
 export type IntervalsInterval = z.infer<typeof intervalSchema>;
 
+export const intervalGroupSchema = z.looseObject({
+  id: num(),
+  label: str(),
+  color: str(),
+});
+
+export type IntervalsIntervalGroup = z.infer<typeof intervalGroupSchema>;
+
+export const intervalsDtoSchema = z.looseObject({
+  icu_intervals: z.array(intervalSchema).nullish().catch(null),
+  icu_groups: z.array(intervalGroupSchema).nullish().catch(null),
+});
+
+export type IntervalsDto = z.infer<typeof intervalsDtoSchema>;
+
 export const activityDetailSchema = activitySchema.extend({
   icu_intervals: z.array(intervalSchema).nullish().catch(null),
+  icu_groups: z.array(intervalGroupSchema).nullish().catch(null),
 });
 
 export type IntervalsActivityDetail = z.infer<typeof activityDetailSchema>;
