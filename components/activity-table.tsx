@@ -24,6 +24,7 @@ import {
   formatPace,
 } from "@/lib/format";
 import { ACTIVITY_SORTS, type ActivityFilters, type ActivitySort, type RunListItem } from "@/lib/queries";
+import type { DistanceUnit } from "@/lib/units";
 
 const COLUMNS: Array<{
   key: ActivitySort | "name";
@@ -50,9 +51,11 @@ const COLUMNS: Array<{
 export function ActivityTable({
   items,
   filters,
+  unit,
 }: {
   items: RunListItem[];
   filters: ActivityFilters;
+  unit: DistanceUnit;
 }) {
   const router = useRouter();
   const searchParams = useSearchParams();
@@ -134,13 +137,13 @@ export function ActivityTable({
               </div>
             </TableCell>
             <TableCell className="text-right font-mono tabular-nums">
-              {formatKm(run.distanceM)}
+              {formatKm(run.distanceM, 1, unit)}
             </TableCell>
             <TableCell className="text-right font-mono tabular-nums">
               {formatDuration(run.movingTimeS)}
             </TableCell>
             <TableCell className="text-right font-mono tabular-nums">
-              {formatPace(run.paceSPerKm)}
+              {formatPace(run.paceSPerKm, unit)}
             </TableCell>
             <TableCell className="hidden text-right font-mono tabular-nums sm:table-cell">
               {formatInteger(run.avgHr)}

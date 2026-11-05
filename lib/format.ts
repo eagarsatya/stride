@@ -1,21 +1,43 @@
+import {
+  FEET_PER_METRE,
+  METRES_PER_MILE,
+  distanceSuffix,
+  metresToUnit,
+  paceSuffix,
+  paceToUnit,
+  type DistanceUnit,
+} from "@/lib/units";
+
 const EM_DASH = "—";
 
-export function formatKm(metres: number | null | undefined, digits = 1): string {
+export function formatKm(
+  metres: number | null | undefined,
+  digits = 1,
+  unit: DistanceUnit = "km",
+): string {
   if (metres == null || !Number.isFinite(metres)) return EM_DASH;
-  return `${(metres / 1000).toFixed(digits)} km`;
+  return `${metresToUnit(metres, unit).toFixed(digits)} ${distanceSuffix(unit)}`;
 }
 
-/** Workout steps often sit well under a kilometre, so show metres there. */
-export function formatSplitDistance(metres: number | null | undefined): string {
+/** Workout steps under ~1 km / ~1 mi stay in metres; that is how they are written. */
+export function formatSplitDistance(
+  metres: number | null | undefined,
+  unit: DistanceUnit = "km",
+): string {
   if (metres == null || !Number.isFinite(metres)) return EM_DASH;
-  if (metres < 950) return `${Math.round(metres)} m`;
-  return formatKm(metres, 2);
+  const threshold = unit === "mi" ? METRES_PER_MILE * 0.95 : 950;
+  if (metres < threshold) return `${Math.round(metres)} m`;
+  return formatKm(metres, 2, unit);
 }
 
-/** Bare kilometre number, for chart axes and tight table cells. */
-export function toKm(metres: number | null | undefined, digits = 1): number | null {
+/** Bare km or miles number, for chart axes and tight table cells. */
+export function toKm(
+  metres: number | null | undefined,
+  digits = 1,
+  unit: DistanceUnit = "km",
+): number | null {
   if (metres == null || !Number.isFinite(metres)) return null;
-  return Number((metres / 1000).toFixed(digits));
+  return Number(metresToUnit(metres, unit).toFixed(digits));
 }
 
 /** "1:23:45" for anything over an hour, otherwise "23:45". */
@@ -55,21 +77,27 @@ export function formatDurationCompact(seconds: number | null | undefined): strin
   return minutes === 0 ? `${hours}h` : `${hours}h ${minutes}m`;
 }
 
-/** Seconds per kilometre as "m:ss". */
-export function formatPace(secondsPerKm: number | null | undefined): string {
+/** Stored seconds-per-km as "m:ss", converted when the display unit is miles. */
+export function formatPace(
+  secondsPerKm: number | null | undefined,
+  unit: DistanceUnit = "km",
+): string {
   if (secondsPerKm == null || !Number.isFinite(secondsPerKm) || secondsPerKm <= 0) {
     return EM_DASH;
   }
 
-  const total = Math.round(secondsPerKm);
+  const total = Math.round(paceToUnit(secondsPerKm, unit));
   const minutes = Math.floor(total / 60);
   const seconds = total % 60;
   return `${minutes}:${String(seconds).padStart(2, "0")}`;
 }
 
-export function formatPaceWithUnit(secondsPerKm: number | null | undefined): string {
-  const pace = formatPace(secondsPerKm);
-  return pace === EM_DASH ? pace : `${pace} /km`;
+export function formatPaceWithUnit(
+  secondsPerKm: number | null | undefined,
+  unit: DistanceUnit = "km",
+): string {
+  const pace = formatPace(secondsPerKm, unit);
+  return pace === EM_DASH ? pace : `${pace} ${paceSuffix(unit)}`;
 }
 
 export function formatInteger(value: number | null | undefined): string {
@@ -82,9 +110,46 @@ export function formatDecimal(value: number | null | undefined, digits = 1): str
   return value.toFixed(digits);
 }
 
-export function formatElevation(metres: number | null | undefined): string {
+export function formatElevation(
+  metres: number | null | undefined,
+  unit: DistanceUnit = "km",
+): string {
   if (metres == null || !Number.isFinite(metres)) return EM_DASH;
+  if (unit === "mi") {
+    return `${Math.round(metres * FEET_PER_METRE).toLocaleString("en-US")} ft`;
+  }
   return `${Math.round(metres).toLocaleString("en-US")} m`;
+}
+
+/** Signed gap used on leaderboards, e.g. "+1.2 km" or "−0.4 mi". */
+export function formatSignedDistance(
+  metres: number | null | undefined,
+  digits = 1,
+  unit: DistanceUnit = "km",
+): string {
+  if (metres == null || !Number.isFinite(metres)) return EM_DASH;
+
+  const value = Number(metresToUnit(metres, unit).toFixed(digits));
+  const suffix = distanceSuffix(unit);
+  if (value === 0) return `0 ${suffix}`;
+
+  const sign = value > 0 ? "+" : "−";
+  return `${sign}${Math.abs(value).toFixed(digits)} ${suffix}`;
+}
+
+export function formatSignedElevation(
+  metres: number | null | undefined,
+  unit: DistanceUnit = "km",
+): string {
+  if (metres == null || !Number.isFinite(metres)) return EM_DASH;
+
+  const raw = unit === "mi" ? metres * FEET_PER_METRE : metres;
+  const rounded = Math.round(raw);
+  const suffix = unit === "mi" ? "ft" : "m";
+  if (rounded === 0) return `0 ${suffix}`;
+
+  const sign = rounded > 0 ? "+" : "−";
+  return `${sign}${Math.abs(rounded).toLocaleString("en-US")} ${suffix}`;
 }
 
 /**

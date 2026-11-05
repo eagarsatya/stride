@@ -5,10 +5,12 @@ import {
   formatDuration,
   formatDurationCompact,
   formatSignedDuration,
+  formatElevation,
   formatKm,
   formatSplitDistance,
   formatPace,
   formatPaceWithUnit,
+  formatSignedDistance,
   parseLocalTimestamp,
   toKm,
 } from "./format";
@@ -30,6 +32,12 @@ describe("formatKm", () => {
     expect(toKm(0)).toBe(0);
     expect(toKm(null)).toBeNull();
   });
+
+  it("converts metres to miles", () => {
+    expect(formatKm(10_000, 1, "mi")).toBe("6.2 mi");
+    expect(formatKm(1609.344, 2, "mi")).toBe("1.00 mi");
+    expect(toKm(10_000, 1, "mi")).toBeCloseTo(6.2);
+  });
 });
 
 describe("formatSplitDistance", () => {
@@ -37,6 +45,11 @@ describe("formatSplitDistance", () => {
     expect(formatSplitDistance(400)).toBe("400 m");
     expect(formatSplitDistance(1000)).toBe("1.00 km");
     expect(formatSplitDistance(null)).toBe(EM_DASH);
+  });
+
+  it("keeps track steps in metres even when the unit is miles", () => {
+    expect(formatSplitDistance(400, "mi")).toBe("400 m");
+    expect(formatSplitDistance(1609.344, "mi")).toBe("1.00 mi");
   });
 });
 
@@ -100,9 +113,28 @@ describe("formatPace", () => {
     expect(formatPaceWithUnit(null)).toBe(EM_DASH);
   });
 
+  it("converts seconds-per-km into min/mile", () => {
+    expect(formatPace(300, "mi")).toBe("8:03");
+    expect(formatPaceWithUnit(300, "mi")).toBe("8:03 /mi");
+  });
+
   it("rejects non-positive paces", () => {
     expect(formatPace(0)).toBe(EM_DASH);
     expect(formatPace(-5)).toBe(EM_DASH);
+  });
+});
+
+describe("formatElevation", () => {
+  it("uses metres by default and feet for miles mode", () => {
+    expect(formatElevation(100)).toBe("100 m");
+    expect(formatElevation(100, "mi")).toBe("328 ft");
+  });
+});
+
+describe("formatSignedDistance", () => {
+  it("signs a kilometre or mile gap", () => {
+    expect(formatSignedDistance(1200)).toBe("+1.2 km");
+    expect(formatSignedDistance(-1609.344, 1, "mi")).toBe("−1.0 mi");
   });
 });
 

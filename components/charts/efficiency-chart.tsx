@@ -11,7 +11,8 @@ import {
   type ChartConfig,
 } from "@/components/ui/chart";
 import type { EfficiencyPoint } from "@/lib/analytics";
-import { formatPace } from "@/lib/format";
+import { formatPace, formatPaceWithUnit } from "@/lib/format";
+import type { DistanceUnit } from "@/lib/units";
 
 const config = {
   paceSPerKm: { label: "Pace", color: "var(--chart-1)" },
@@ -29,7 +30,7 @@ function formatDay(value: string) {
  * Pace against heart rate over time. Pace trending faster while heart rate
  * holds steady is aerobic fitness improving.
  */
-export function EfficiencyChart({ data }: { data: EfficiencyPoint[] }) {
+export function EfficiencyChart({ data, unit }: { data: EfficiencyPoint[]; unit: DistanceUnit }) {
   return (
     <ChartContainer config={config} className="h-72 w-full">
       <ComposedChart data={data} margin={{ left: 4, right: 4, top: 8 }}>
@@ -49,7 +50,7 @@ export function EfficiencyChart({ data }: { data: EfficiencyPoint[] }) {
           tickLine={false}
           axisLine={false}
           width={44}
-          tickFormatter={(value: number) => formatPace(value)}
+          tickFormatter={(value: number) => formatPace(value, unit)}
         />
         <YAxis
           yAxisId="hr"
@@ -70,7 +71,7 @@ export function EfficiencyChart({ data }: { data: EfficiencyPoint[] }) {
                   </span>
                   <span className="font-mono font-medium tabular-nums">
                     {name === "paceSPerKm"
-                      ? `${formatPace(Number(value))} /km`
+                      ? formatPaceWithUnit(Number(value), unit)
                       : `${Math.round(Number(value))} bpm`}
                   </span>
                 </span>

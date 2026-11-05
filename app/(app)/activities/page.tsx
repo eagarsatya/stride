@@ -17,6 +17,7 @@ import {
   type ActivityRange,
   type ActivitySort,
 } from "@/lib/queries";
+import { getDistanceUnit } from "@/lib/settings";
 import { requireUser } from "@/lib/session";
 
 export const metadata = { title: "Activities" };
@@ -61,9 +62,10 @@ export default async function ActivitiesPage({ searchParams }: PageProps<"/activ
   const user = await requireUser();
   const filters = parseFilters(await searchParams);
 
-  const [connection, { items, total, pageCount }] = await Promise.all([
+  const [connection, { items, total, pageCount }, unit] = await Promise.all([
     getConnection(user.id),
     getActivities(user.id, filters),
+    getDistanceUnit(user.id),
   ]);
 
   if (total === 0 && !connection) {
@@ -83,7 +85,7 @@ export default async function ActivitiesPage({ searchParams }: PageProps<"/activ
         title="Activities"
         description={
           total > 0
-            ? `${total} runs in this range · ${formatKm(totalDistance, 0)} on this page`
+            ? `${total} runs in this range · ${formatKm(totalDistance, 0, unit)} on this page`
             : undefined
         }
       />
@@ -97,7 +99,7 @@ export default async function ActivitiesPage({ searchParams }: PageProps<"/activ
       ) : (
         <Card>
           <CardContent className="px-0">
-            <ActivityTable items={items} filters={filters} />
+            <ActivityTable items={items} filters={filters} unit={unit} />
           </CardContent>
         </Card>
       )}

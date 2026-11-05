@@ -17,6 +17,7 @@ import { user } from "./auth";
 
 export const syncKind = pgEnum("sync_kind", ["backfill", "incremental", "manual"]);
 export const syncStatus = pgEnum("sync_status", ["queued", "running", "success", "error"]);
+export const distanceUnit = pgEnum("distance_unit", ["km", "mi"]);
 
 /** One step in a structured workout (warmup, work, rest, …) or a device lap. */
 export type TrainingStep = {
@@ -219,6 +220,18 @@ export const wellness = pgTable(
   ],
 );
 
+/**
+ * Display preferences. Kept off the Better Auth `user` table so that schema
+ * stays adapter-owned.
+ */
+export const userSettings = pgTable("user_settings", {
+  userId: text()
+    .primaryKey()
+    .references(() => user.id, { onDelete: "cascade" }),
+  distanceUnit: distanceUnit().notNull().default("km"),
+  updatedAt: timestamp({ withTimezone: true }).defaultNow().notNull(),
+});
+
 /** Sync run history, so the UI can show progress and surface failures. */
 export const syncJobs = pgTable(
   "sync_jobs",
@@ -248,3 +261,4 @@ export type NewActivity = typeof activities.$inferInsert;
 export type ActivityStream = typeof activityStreams.$inferSelect;
 export type Wellness = typeof wellness.$inferSelect;
 export type SyncJob = typeof syncJobs.$inferSelect;
+export type UserSettings = typeof userSettings.$inferSelect;

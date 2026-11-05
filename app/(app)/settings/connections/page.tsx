@@ -5,6 +5,7 @@ import { ConnectIntervalsForm } from "@/components/connect-intervals-form";
 import { FitImportForm } from "@/components/fit-import-form";
 import { PageHeader } from "@/components/page-header";
 import { DangerControls, SyncControls } from "@/components/sync-controls";
+import { UnitsForm } from "@/components/units-form";
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
 import { Badge } from "@/components/ui/badge";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
@@ -13,6 +14,7 @@ import { db } from "@/db";
 import { activities, syncJobs } from "@/db/schema/app";
 import { getConnection } from "@/lib/connections";
 import { formatDate, formatKm, formatRelative } from "@/lib/format";
+import { getDistanceUnit } from "@/lib/settings";
 import { requireUser } from "@/lib/session";
 
 import {
@@ -34,7 +36,10 @@ export const maxDuration = 300;
 
 export default async function ConnectionsPage() {
   const user = await requireUser();
-  const connection = await getConnection(user.id);
+  const [connection, unit] = await Promise.all([
+    getConnection(user.id),
+    getDistanceUnit(user.id),
+  ]);
 
   const [stats] = await db
     .select({
@@ -62,6 +67,19 @@ export default async function ConnectionsPage() {
 
       <div className="grid gap-6 lg:grid-cols-3">
         <div className="space-y-6 lg:col-span-2">
+          <Card>
+            <CardHeader>
+              <CardTitle>Units</CardTitle>
+              <CardDescription>
+                Distance, pace, and elevation. Stored data stays in metres — this only changes
+                how it is shown.
+              </CardDescription>
+            </CardHeader>
+            <CardContent>
+              <UnitsForm value={unit} />
+            </CardContent>
+          </Card>
+
           <Card>
             <CardHeader>
               <div className="flex items-start justify-between gap-4">
@@ -109,7 +127,7 @@ export default async function ConnectionsPage() {
                       <span>
                         Total distance:{" "}
                         <span className="text-foreground">
-                          {formatKm(stats?.totalDistance ?? 0, 0)}
+                          {formatKm(stats?.totalDistance ?? 0, 0, unit)}
                         </span>
                       </span>
                     </div>

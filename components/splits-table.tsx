@@ -8,8 +8,9 @@ import {
 } from "@/components/ui/table";
 import { formatDuration, formatInteger, formatPace } from "@/lib/format";
 import type { Split } from "@/lib/splits";
+import { metresToUnit, splitColumnLabel, splitMetresFor, type DistanceUnit } from "@/lib/units";
 
-export function SplitsTable({ splits }: { splits: Split[] }) {
+export function SplitsTable({ splits, unit }: { splits: Split[]; unit: DistanceUnit }) {
   if (splits.length === 0) {
     return (
       <p className="text-muted-foreground text-sm">
@@ -30,7 +31,7 @@ export function SplitsTable({ splits }: { splits: Split[] }) {
     <Table>
       <TableHeader>
         <TableRow>
-          <TableHead className="w-12">Km</TableHead>
+          <TableHead className="w-12">{splitColumnLabel(unit)}</TableHead>
           <TableHead className="text-right">Pace</TableHead>
           <TableHead className="text-right">Time</TableHead>
           <TableHead className="hidden text-right sm:table-cell">Avg HR</TableHead>
@@ -39,7 +40,7 @@ export function SplitsTable({ splits }: { splits: Split[] }) {
       </TableHeader>
       <TableBody>
         {splits.map((split) => {
-          const isPartial = split.distanceM < 950;
+          const isPartial = split.distanceM < splitMetresFor(unit) * 0.95;
           // Bar length is scaled within this run's own pace range, so variation
           // is visible even on a very even run.
           const share =
@@ -52,10 +53,10 @@ export function SplitsTable({ splits }: { splits: Split[] }) {
           return (
             <TableRow key={split.index}>
               <TableCell className="font-mono text-xs tabular-nums">
-                {isPartial ? `${(split.distanceM / 1000).toFixed(2)}` : split.index}
+                {isPartial ? metresToUnit(split.distanceM, unit).toFixed(2) : split.index}
               </TableCell>
               <TableCell className="text-right font-mono font-medium tabular-nums">
-                {formatPace(split.paceSPerKm)}
+                {formatPace(split.paceSPerKm, unit)}
                 {split.paceSPerKm != null && split.paceSPerKm === fastest ? (
                   <span className="text-primary ml-1 text-xs">★</span>
                 ) : null}

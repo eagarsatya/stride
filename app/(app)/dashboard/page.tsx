@@ -28,6 +28,7 @@ import {
   getSummary,
   getWeeklyVolume,
 } from "@/lib/queries";
+import { getDistanceUnit } from "@/lib/settings";
 import { requireUser } from "@/lib/session";
 
 export const metadata = { title: "Overview" };
@@ -35,9 +36,10 @@ export const metadata = { title: "Overview" };
 export default async function DashboardPage() {
   const user = await requireUser();
 
-  const [connection, summary] = await Promise.all([
+  const [connection, summary, unit] = await Promise.all([
     getConnection(user.id),
     getSummary(user.id),
+    getDistanceUnit(user.id),
   ]);
 
   if (!connection && summary.all.runs === 0) {
@@ -68,7 +70,7 @@ export default async function DashboardPage() {
     <>
       <PageHeader
         title="Overview"
-        description={`${summary.all.runs} runs · ${formatKm(summary.all.distanceM, 0)} all time`}
+        description={`${summary.all.runs} runs · ${formatKm(summary.all.distanceM, 0, unit)} all time`}
         actions={
           <Button variant="outline" asChild>
             <Link href="/activities">All activities</Link>
@@ -79,20 +81,20 @@ export default async function DashboardPage() {
       <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
         <StatCard
           label="This week"
-          value={formatKm(summary.week.distanceM)}
+          value={formatKm(summary.week.distanceM, 1, unit)}
           hint={`${summary.week.runs} runs · ${formatDurationCompact(summary.week.movingTimeS)}`}
           icon={Route}
         />
         <StatCard
           label="This month"
-          value={formatKm(summary.month.distanceM)}
-          hint={`${summary.month.runs} runs · ${formatPaceWithUnit(summary.month.paceSPerKm)}`}
+          value={formatKm(summary.month.distanceM, 1, unit)}
+          hint={`${summary.month.runs} runs · ${formatPaceWithUnit(summary.month.paceSPerKm, unit)}`}
           icon={CalendarDays}
         />
         <StatCard
           label="This year"
-          value={formatKm(summary.year.distanceM, 0)}
-          hint={`${summary.year.runs} runs · ${formatElevation(summary.year.elevationM)} up`}
+          value={formatKm(summary.year.distanceM, 0, unit)}
+          hint={`${summary.year.runs} runs · ${formatElevation(summary.year.elevationM, unit)} up`}
           icon={Timer}
         />
         <StatCard
@@ -107,10 +109,12 @@ export default async function DashboardPage() {
         <Card className="lg:col-span-2">
           <CardHeader>
             <CardTitle>Weekly volume</CardTitle>
-            <CardDescription>Kilometres per week, last 16 weeks</CardDescription>
+            <CardDescription>
+              {unit === "mi" ? "Miles" : "Kilometres"} per week, last 16 weeks
+            </CardDescription>
           </CardHeader>
           <CardContent>
-            <WeeklyVolumeChart data={weekly} />
+            <WeeklyVolumeChart data={weekly} unit={unit} />
           </CardContent>
         </Card>
 
@@ -120,7 +124,7 @@ export default async function DashboardPage() {
             <CardDescription>Latest activities</CardDescription>
           </CardHeader>
           <CardContent>
-            <RunList runs={recent} />
+            <RunList runs={recent} unit={unit} />
           </CardContent>
         </Card>
       </div>

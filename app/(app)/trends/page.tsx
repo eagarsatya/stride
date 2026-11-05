@@ -19,6 +19,7 @@ import {
 import { getConnection } from "@/lib/connections";
 import { formatDecimal } from "@/lib/format";
 import { getSummary } from "@/lib/queries";
+import { getDistanceUnit } from "@/lib/settings";
 import { requireUser } from "@/lib/session";
 
 export const metadata = { title: "Trends" };
@@ -26,9 +27,10 @@ export const metadata = { title: "Trends" };
 export default async function TrendsPage() {
   const user = await requireUser();
 
-  const [connection, summary] = await Promise.all([
+  const [connection, summary, unit] = await Promise.all([
     getConnection(user.id),
     getSummary(user.id),
+    getDistanceUnit(user.id),
   ]);
 
   if (summary.all.runs === 0) {
@@ -63,10 +65,12 @@ export default async function TrendsPage() {
         <Card>
           <CardHeader>
             <CardTitle>Monthly volume</CardTitle>
-            <CardDescription>Kilometres per month, last 24 months</CardDescription>
+            <CardDescription>
+              {unit === "mi" ? "Miles" : "Kilometres"} per month, last 24 months
+            </CardDescription>
           </CardHeader>
           <CardContent>
-            <MonthlyVolumeChart data={monthly} />
+            <MonthlyVolumeChart data={monthly} unit={unit} />
           </CardContent>
         </Card>
 
@@ -81,7 +85,7 @@ export default async function TrendsPage() {
           </CardHeader>
           <CardContent>
             {efficiency.length > 1 ? (
-              <EfficiencyChart data={efficiency} />
+              <EfficiencyChart data={efficiency} unit={unit} />
             ) : (
               <p className="text-muted-foreground py-8 text-center text-sm">
                 Not enough runs with heart rate data yet.

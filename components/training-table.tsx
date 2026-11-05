@@ -14,6 +14,7 @@ import {
   isWorkoutType,
   type TrainingStep,
 } from "@/lib/training";
+import type { DistanceUnit } from "@/lib/units";
 import { cn } from "@/lib/utils";
 
 function badgeVariant(type: string | null): "default" | "secondary" | "outline" {
@@ -23,7 +24,7 @@ function badgeVariant(type: string | null): "default" | "secondary" | "outline" 
   return "outline";
 }
 
-export function TrainingTable({ steps }: { steps: TrainingStep[] }) {
+export function TrainingTable({ steps, unit }: { steps: TrainingStep[]; unit: DistanceUnit }) {
   if (steps.length === 0) {
     return (
       <p className="text-muted-foreground text-sm">
@@ -87,10 +88,10 @@ export function TrainingTable({ steps }: { steps: TrainingStep[] }) {
                 </div>
               </TableCell>
               <TableCell className="text-right font-mono text-sm tabular-nums">
-                {formatSplitDistance(step.distanceM)}
+                {formatSplitDistance(step.distanceM, unit)}
               </TableCell>
               <TableCell className="text-right font-mono font-medium tabular-nums">
-                {formatPace(step.paceSPerKm)}
+                {formatPace(step.paceSPerKm, unit)}
                 {step.paceSPerKm != null && step.paceSPerKm === fastest && !rest ? (
                   <span className="text-primary ml-1 text-xs">★</span>
                 ) : null}
