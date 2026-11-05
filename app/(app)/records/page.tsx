@@ -35,6 +35,7 @@ import {
 } from "@/lib/format";
 import { getSummary } from "@/lib/queries";
 import { PR_LABELS } from "@/lib/records";
+import { getDistanceUnit } from "@/lib/settings";
 import { requireUser } from "@/lib/session";
 
 export const metadata = { title: "Records" };
@@ -45,9 +46,10 @@ export const maxDuration = 300;
 export default async function RecordsPage() {
   const user = await requireUser();
 
-  const [connection, summary] = await Promise.all([
+  const [connection, summary, unit] = await Promise.all([
     getConnection(user.id),
     getSummary(user.id),
+    getDistanceUnit(user.id),
   ]);
 
   if (summary.all.runs === 0) {
@@ -106,7 +108,7 @@ export default async function RecordsPage() {
                   {formatDuration(record.timeS)}
                 </p>
                 <p className="text-muted-foreground mt-1 font-mono text-xs tabular-nums">
-                  {formatPaceWithUnit((record.timeS / record.distanceM) * 1000)}
+                  {formatPaceWithUnit((record.timeS / record.distanceM) * 1000, unit)}
                 </p>
                 <Link
                   href={`/activities/${record.activityId}`}
@@ -129,7 +131,7 @@ export default async function RecordsPage() {
       <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
         <StatCard
           label="Longest run"
-          value={formatKm(records.longestRuns[0]?.distanceM ?? null)}
+          value={formatKm(records.longestRuns[0]?.distanceM ?? null, 1, unit)}
           hint={
             records.longestRuns[0]
               ? `${records.longestRuns[0].name?.trim() || "Untitled run"} · ${formatDate(records.longestRuns[0].date)}`
@@ -139,7 +141,7 @@ export default async function RecordsPage() {
         />
         <StatCard
           label="Biggest week"
-          value={formatKm(records.biggestWeeks[0]?.distanceM ?? null)}
+          value={formatKm(records.biggestWeeks[0]?.distanceM ?? null, 1, unit)}
           hint={
             records.biggestWeeks[0]
               ? `Week of ${formatDate(records.biggestWeeks[0].key)}`
@@ -149,13 +151,13 @@ export default async function RecordsPage() {
         />
         <StatCard
           label="Biggest month"
-          value={formatKm(records.biggestMonths[0]?.distanceM ?? null, 0)}
+          value={formatKm(records.biggestMonths[0]?.distanceM ?? null, 0, unit)}
           hint={records.biggestMonths[0]?.key}
           icon={CalendarRange}
         />
         <StatCard
           label="Most elevation"
-          value={formatElevation(records.mostElevation[0]?.elevationM ?? null)}
+          value={formatElevation(records.mostElevation[0]?.elevationM ?? null, unit)}
           hint={
             records.mostElevation[0]
               ? `${records.mostElevation[0].name?.trim() || "Untitled run"} · ${formatDate(records.mostElevation[0].date)}`
@@ -171,8 +173,8 @@ export default async function RecordsPage() {
         />
         <StatCard
           label="All time"
-          value={formatKm(summary.all.distanceM, 0)}
-          hint={`${summary.all.runs} runs · ${formatPaceWithUnit(summary.all.paceSPerKm)} average`}
+          value={formatKm(summary.all.distanceM, 0, unit)}
+          hint={`${summary.all.runs} runs · ${formatPaceWithUnit(summary.all.paceSPerKm, unit)} average`}
           icon={Trophy}
         />
       </div>
@@ -183,6 +185,7 @@ export default async function RecordsPage() {
         biggestWeeks={records.biggestWeeks}
         biggestMonths={records.biggestMonths}
         mostElevation={records.mostElevation}
+        unit={unit}
       />
 
       {records.races.length > 0 ? (
@@ -223,13 +226,13 @@ export default async function RecordsPage() {
                       {formatDate(race.date)}
                     </TableCell>
                     <TableCell className="text-right font-mono tabular-nums">
-                      {formatKm(race.distanceM, 2)}
+                      {formatKm(race.distanceM, 2, unit)}
                     </TableCell>
                     <TableCell className="text-right font-mono tabular-nums">
                       {formatDuration(race.movingTimeS)}
                     </TableCell>
                     <TableCell className="text-right font-mono tabular-nums">
-                      {formatPace(race.paceSPerKm)}
+                      {formatPace(race.paceSPerKm, unit)}
                     </TableCell>
                   </TableRow>
                 ))}

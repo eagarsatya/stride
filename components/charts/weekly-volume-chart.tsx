@@ -10,15 +10,27 @@ import {
 } from "@/components/ui/chart";
 import { formatDurationCompact } from "@/lib/format";
 import type { WeeklyVolumePoint } from "@/lib/queries";
+import { distanceSuffix, kmToUnit, type DistanceUnit } from "@/lib/units";
 
 const config = {
   distanceKm: { label: "Distance", color: "var(--chart-1)" },
 } satisfies ChartConfig;
 
-export function WeeklyVolumeChart({ data }: { data: WeeklyVolumePoint[] }) {
+export function WeeklyVolumeChart({
+  data,
+  unit,
+}: {
+  data: WeeklyVolumePoint[];
+  unit: DistanceUnit;
+}) {
+  const display = data.map((point) => ({
+    ...point,
+    distance: Number(kmToUnit(point.distanceKm, unit).toFixed(1)),
+  }));
+
   return (
     <ChartContainer config={config} className="h-64 w-full">
-      <BarChart data={data} margin={{ left: 4, right: 4, top: 8 }}>
+      <BarChart data={display} margin={{ left: 4, right: 4, top: 8 }}>
         <CartesianGrid vertical={false} />
         <XAxis
           dataKey="label"
@@ -48,7 +60,7 @@ export function WeeklyVolumeChart({ data }: { data: WeeklyVolumePoint[] }) {
                   <span className="flex w-full justify-between gap-3">
                     <span className="text-muted-foreground">Distance</span>
                     <span className="font-mono font-medium tabular-nums">
-                      {value} km
+                      {value} {distanceSuffix(unit)}
                       {point && point.movingTimeS > 0
                         ? ` · ${formatDurationCompact(point.movingTimeS)}`
                         : ""}
@@ -59,7 +71,7 @@ export function WeeklyVolumeChart({ data }: { data: WeeklyVolumePoint[] }) {
             />
           }
         />
-        <Bar dataKey="distanceKm" fill="var(--color-distanceKm)" radius={[4, 4, 0, 0]} />
+        <Bar dataKey="distance" fill="var(--color-distanceKm)" radius={[4, 4, 0, 0]} />
       </BarChart>
     </ChartContainer>
   );

@@ -14,9 +14,11 @@ import { clientForConnection, getConnection } from "@/lib/connections";
 import { isFitUploadId } from "@/lib/fit/match";
 import { FIT_SOURCE } from "@/lib/fit/parse";
 import { toApiDate, type IntervalsClient } from "@/lib/intervals/client";
+import { IntervalsApiError } from "@/lib/intervals/errors";
 import { mapActivity, mapStreams, mapWellness } from "@/lib/intervals/map";
 import { isRunType, usableStreams } from "@/lib/intervals/schemas";
 import { computeBestEfforts } from "@/lib/records";
+import { mapIcuIntervals, type TrainingStep } from "@/lib/training";
 
 export const BACKFILL_YEARS = 3;
 const WINDOW_MONTHS = 6;
@@ -98,9 +100,9 @@ function chunk<T>(items: T[], size: number): T[][] {
 }
 
 /**
- * Upsert on (userId, icuActivityId). `bestEfforts` is deliberately absent from
- * the update set: it is derived from streams by a separate pass and must
- * survive a re-sync of the same activity.
+ * Upsert on (userId, icuActivityId). `bestEfforts` and `trainingSteps` are
+ * absent from the update set: they are filled lazily (or from a FIT import)
+ * and must survive a re-sync of the same activity.
  */
 async function upsertActivities(rows: NewActivity[]): Promise<number> {
   let count = 0;
@@ -411,6 +413,71 @@ export async function ensureStreams(
   await markAnalyzed(activity.id, bestEfforts);
 
   return data;
+}
+
+/**
+ * Fetch and cache workout steps. Same lazy pattern as streams: list sync does
+ * not pull per-activity intervals, so the first detail view does it.
+ */
+export async function ensureTrainingSteps(
+  userId: string,
+  activityId: string,
+): Promise<TrainingStep[]> {
+  const [activity] = await db
+    .select({
+      id: activities.id,
+      icuActivityId: activities.icuActivityId,
+      source: activities.source,
+      trainingSteps: activities.trainingSteps,
+      trainingStepsAt: activities.trainingStepsAt,
+    })
+    .from(activities)
+    .where(and(eq(activities.id, activityId), eq(activities.userId, userId)))
+    .limit(1);
+
+  if (!activity) return [];
+  if (activity.trainingStepsAt) return activity.trainingSteps ?? [];
+
+  if (activity.source === FIT_SOURCE || isFitUploadId(activity.icuActivityId)) {
+    await markTrainingSteps(activity.id, []);
+    return [];
+  }
+
+  const connection = await getConnection(userId);
+  if (!connection) {
+    await markTrainingSteps(activity.id, []);
+    return [];
+  }
+
+  const client = clientForConnection(connection);
+
+  try {
+    const dto = await fetchIntervalsDto(client, activity.icuActivityId);
+    const steps = mapIcuIntervals(dto.icu_intervals, dto.icu_groups);
+    await markTrainingSteps(activity.id, steps);
+    return steps;
+  } catch {
+    // Leave trainingStepsAt null so a later view can retry. Splits still render.
+    return [];
+  }
+}
+
+async function fetchIntervalsDto(client: IntervalsClient, icuActivityId: string) {
+  try {
+    return await client.getIntervals(icuActivityId);
+  } catch (error) {
+    if (error instanceof IntervalsApiError && error.status === 404) {
+      return client.getActivity(icuActivityId);
+    }
+    throw error;
+  }
+}
+
+async function markTrainingSteps(activityId: string, trainingSteps: TrainingStep[]) {
+  await db
+    .update(activities)
+    .set({ trainingSteps, trainingStepsAt: new Date() })
+    .where(eq(activities.id, activityId));
 }
 
 async function markAnalyzed(activityId: string, bestEfforts: Record<string, number>) {

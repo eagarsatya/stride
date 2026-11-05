@@ -5,6 +5,7 @@ import { useCallback, useTransition } from "react";
 
 import { useBusyEffect } from "@/components/busy-overlay";
 import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
 import {
   Select,
   SelectContent,
@@ -12,7 +13,12 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
-import { ACTIVITY_RANGES, type ActivityFilters } from "@/lib/queries";
+import {
+  ACTIVITY_RANGES,
+  activityRangeBounds,
+  isoDay,
+  type ActivityFilters,
+} from "@/lib/queries";
 import { cn } from "@/lib/utils";
 
 const TYPES = [
@@ -52,8 +58,23 @@ export function ActivityFilterBar({ filters }: { filters: ActivityFilters }) {
         pending && "opacity-60",
       )}
     >
-      <Select value={filters.range} onValueChange={(value) => update({ range: value })}>
-        <SelectTrigger className="w-40">
+      <Select
+        value={filters.range}
+        onValueChange={(value) => {
+          if (value === "custom") {
+            const bounds = activityRangeBounds(filters);
+            update({
+              range: "custom",
+              from: bounds.from ?? filters.from,
+              to: filters.to ?? isoDay(new Date()),
+            });
+            return;
+          }
+
+          update({ range: value, from: null, to: null });
+        }}
+      >
+        <SelectTrigger className="w-44" aria-label="Date range">
           <SelectValue />
         </SelectTrigger>
         <SelectContent>
@@ -64,6 +85,28 @@ export function ActivityFilterBar({ filters }: { filters: ActivityFilters }) {
           ))}
         </SelectContent>
       </Select>
+
+      {filters.range === "custom" ? (
+        <>
+          <Input
+            type="date"
+            aria-label="From date"
+            className="w-40"
+            value={filters.from ?? ""}
+            max={filters.to ?? undefined}
+            onChange={(event) => update({ range: "custom", from: event.target.value || null })}
+          />
+          <span className="text-muted-foreground px-0.5 text-sm">to</span>
+          <Input
+            type="date"
+            aria-label="To date"
+            className="w-40"
+            value={filters.to ?? ""}
+            min={filters.from ?? undefined}
+            onChange={(event) => update({ range: "custom", to: event.target.value || null })}
+          />
+        </>
+      ) : null}
 
       <Select value={filters.type} onValueChange={(value) => update({ type: value })}>
         <SelectTrigger className="w-36">

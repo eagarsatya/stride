@@ -10,15 +10,16 @@ import {
   ChartTooltipContent,
   type ChartConfig,
 } from "@/components/ui/chart";
-import { formatPace } from "@/lib/format";
+import { formatPace, formatPaceWithUnit } from "@/lib/format";
 import type { SeriesPoint } from "@/lib/splits";
+import { distanceSuffix, kmToUnit, type DistanceUnit } from "@/lib/units";
 
 const config = {
   paceSPerKm: { label: "Pace", color: "var(--chart-1)" },
   heartrate: { label: "Heart rate", color: "var(--chart-5)" },
 } satisfies ChartConfig;
 
-export function PaceHrChart({ data }: { data: SeriesPoint[] }) {
+export function PaceHrChart({ data, unit }: { data: SeriesPoint[]; unit: DistanceUnit }) {
   const hasHr = data.some((point) => point.heartrate != null);
 
   return (
@@ -32,7 +33,9 @@ export function PaceHrChart({ data }: { data: SeriesPoint[] }) {
           tickLine={false}
           axisLine={false}
           tickMargin={8}
-          tickFormatter={(value: number) => `${value.toFixed(0)}k`}
+          tickFormatter={(value: number) =>
+            `${kmToUnit(value, unit).toFixed(0)}${unit === "mi" ? "mi" : "k"}`
+          }
         />
         <YAxis
           yAxisId="pace"
@@ -42,7 +45,7 @@ export function PaceHrChart({ data }: { data: SeriesPoint[] }) {
           tickLine={false}
           axisLine={false}
           width={44}
-          tickFormatter={(value: number) => formatPace(value)}
+          tickFormatter={(value: number) => formatPace(value, unit)}
         />
         {hasHr ? (
           <YAxis
@@ -57,7 +60,9 @@ export function PaceHrChart({ data }: { data: SeriesPoint[] }) {
         <ChartTooltip
           content={
             <ChartTooltipContent
-              labelFormatter={(label) => `${Number(label).toFixed(2)} km`}
+              labelFormatter={(label) =>
+                `${kmToUnit(Number(label), unit).toFixed(2)} ${distanceSuffix(unit)}`
+              }
               formatter={(value, name) => (
                 <span className="flex w-full justify-between gap-3">
                   <span className="text-muted-foreground">
@@ -65,7 +70,7 @@ export function PaceHrChart({ data }: { data: SeriesPoint[] }) {
                   </span>
                   <span className="font-mono font-medium tabular-nums">
                     {name === "paceSPerKm"
-                      ? `${formatPace(Number(value))} /km`
+                      ? formatPaceWithUnit(Number(value), unit)
                       : `${Math.round(Number(value))} bpm`}
                   </span>
                 </span>

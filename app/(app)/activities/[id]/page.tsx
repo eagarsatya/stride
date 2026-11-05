@@ -6,6 +6,7 @@ import { PaceHrChart } from "@/components/charts/pace-hr-chart";
 import { PageHeader } from "@/components/page-header";
 import { RouteMap } from "@/components/route-map";
 import { SplitsTable } from "@/components/splits-table";
+import { TrainingTable } from "@/components/training-table";
 import { ZoneBars } from "@/components/zone-bars";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
@@ -30,9 +31,12 @@ import {
 import { getActivityDetail, getActivityNeighbours } from "@/lib/queries";
 import { requireUser } from "@/lib/session";
 import { boundsOf, buildSeries, computeSplits, toRouteLine } from "@/lib/splits";
-import { ensureStreams } from "@/lib/sync";
+import { getDistanceUnit } from "@/lib/settings";
+import { ensureStreams, ensureTrainingSteps } from "@/lib/sync";
+import { isStructuredTraining, type TrainingStep } from "@/lib/training";
+import { splitMetresFor } from "@/lib/units";
 
-/** Streams are fetched from Intervals.icu on first view, then cached. */
+/** Streams and workout steps are fetched from Intervals.icu on first view. */
 export const maxDuration = 60;
 
 export async function generateMetadata({ params }: PageProps<"/activities/[id]">) {
@@ -65,7 +69,10 @@ export default async function ActivityDetailPage({ params }: PageProps<"/activit
   const { id } = await params;
   const user = await requireUser();
 
-  const activity = await getActivityDetail(user.id, id);
+  const [activity, unit] = await Promise.all([
+    getActivityDetail(user.id, id),
+    getDistanceUnit(user.id),
+  ]);
   if (!activity) notFound();
 
   const neighbours = await getActivityNeighbours(user.id, activity.startDateLocal);
@@ -80,10 +87,23 @@ export default async function ActivityDetailPage({ params }: PageProps<"/activit
     streamError = "Could not load detailed streams for this activity.";
   }
 
-  const splits = computeSplits(streams?.distance, streams?.time, streams?.heartrate);
+  const splits = computeSplits(
+    streams?.distance,
+    streams?.time,
+    streams?.heartrate,
+    splitMetresFor(unit),
+  );
   const series = buildSeries(streams);
   const line = toRouteLine(streams);
   const bounds = boundsOf(line);
+
+  let trainingSteps: TrainingStep[] = [];
+  try {
+    trainingSteps = await ensureTrainingSteps(user.id, activity.id);
+  } catch {
+    trainingSteps = [];
+  }
+  const showTraining = isStructuredTraining(trainingSteps);
 
   const typeLabel =
     activity.type === "TrailRun" ? "Trail" : activity.type === "VirtualRun" ? "Virtual" : "Road";
@@ -142,7 +162,7 @@ export default async function ActivityDetailPage({ params }: PageProps<"/activit
 
       <Card>
         <CardContent className="grid grid-cols-2 gap-6 pt-6 sm:grid-cols-3 lg:grid-cols-6">
-          <Metric label="Distance" value={formatKm(activity.distanceM, 2)} />
+          <Metric label="Distance" value={formatKm(activity.distanceM, 2, unit)} />
           <Metric
             label="Moving time"
             value={formatDuration(activity.movingTimeS)}
@@ -154,10 +174,10 @@ export default async function ActivityDetailPage({ params }: PageProps<"/activit
           />
           <Metric
             label="Pace"
-            value={formatPaceWithUnit(activity.paceSPerKm)}
+            value={formatPaceWithUnit(activity.paceSPerKm, unit)}
             hint={
               activity.gapSPerKm
-                ? `${formatPaceWithUnit(activity.gapSPerKm)} grade-adjusted`
+                ? `${formatPaceWithUnit(activity.gapSPerKm, unit)} grade-adjusted`
                 : undefined
             }
           />
@@ -168,10 +188,10 @@ export default async function ActivityDetailPage({ params }: PageProps<"/activit
           />
           <Metric
             label="Elevation"
-            value={formatElevation(activity.elevationGainM)}
+            value={formatElevation(activity.elevationGainM, unit)}
             hint={
               activity.elevationLossM
-                ? `${formatElevation(activity.elevationLossM)} down`
+                ? `${formatElevation(activity.elevationLossM, unit)} down`
                 : undefined
             }
           />
@@ -244,7 +264,7 @@ export default async function ActivityDetailPage({ params }: PageProps<"/activit
           </CardHeader>
           <CardContent>
             {series.length > 1 ? (
-              <PaceHrChart data={series} />
+              <PaceHrChart data={series} unit={unit} />
             ) : (
               <p className="text-muted-foreground py-8 text-center text-sm">
                 No stream data for this activity.
@@ -274,13 +294,21 @@ export default async function ActivityDetailPage({ params }: PageProps<"/activit
 
       <Card className="mt-6">
         <CardContent className="pt-6">
-          <Tabs defaultValue="splits">
+          <Tabs defaultValue={showTraining ? "training" : "splits"}>
             <TabsList>
-              <TabsTrigger value="splits">Splits</TabsTrigger>
+              {showTraining ? <TabsTrigger value="training">Training</TabsTrigger> : null}
+              <TabsTrigger value="splits">
+                {showTraining ? (unit === "mi" ? "Per mile" : "Per km") : "Splits"}
+              </TabsTrigger>
               <TabsTrigger value="zones">Zones</TabsTrigger>
             </TabsList>
+            {showTraining ? (
+              <TabsContent value="training" className="mt-4">
+                <TrainingTable steps={trainingSteps} unit={unit} />
+              </TabsContent>
+            ) : null}
             <TabsContent value="splits" className="mt-4">
-              <SplitsTable splits={splits} />
+              <SplitsTable splits={splits} unit={unit} />
             </TabsContent>
             <TabsContent value="zones" className="mt-4 grid gap-8 md:grid-cols-2">
               <div>

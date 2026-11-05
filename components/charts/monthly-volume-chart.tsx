@@ -10,15 +10,27 @@ import {
 } from "@/components/ui/chart";
 import { formatDurationCompact } from "@/lib/format";
 import type { MonthlyVolumePoint } from "@/lib/analytics";
+import { distanceSuffix, kmToUnit, type DistanceUnit } from "@/lib/units";
 
 const config = {
   distanceKm: { label: "Distance", color: "var(--chart-2)" },
 } satisfies ChartConfig;
 
-export function MonthlyVolumeChart({ data }: { data: MonthlyVolumePoint[] }) {
+export function MonthlyVolumeChart({
+  data,
+  unit,
+}: {
+  data: MonthlyVolumePoint[];
+  unit: DistanceUnit;
+}) {
+  const display = data.map((point) => ({
+    ...point,
+    distance: Number(kmToUnit(point.distanceKm, unit).toFixed(1)),
+  }));
+
   return (
     <ChartContainer config={config} className="h-72 w-full">
-      <BarChart data={data} margin={{ left: 4, right: 4, top: 8 }}>
+      <BarChart data={display} margin={{ left: 4, right: 4, top: 8 }}>
         <CartesianGrid vertical={false} />
         <XAxis
           dataKey="label"
@@ -42,7 +54,9 @@ export function MonthlyVolumeChart({ data }: { data: MonthlyVolumePoint[] }) {
                   <span className="flex w-full flex-col gap-0.5">
                     <span className="flex justify-between gap-3">
                       <span className="text-muted-foreground">Distance</span>
-                      <span className="font-mono font-medium tabular-nums">{value} km</span>
+                      <span className="font-mono font-medium tabular-nums">
+                        {value} {distanceSuffix(unit)}
+                      </span>
                     </span>
                     {point ? (
                       <span className="flex justify-between gap-3">
@@ -58,7 +72,7 @@ export function MonthlyVolumeChart({ data }: { data: MonthlyVolumePoint[] }) {
             />
           }
         />
-        <Bar dataKey="distanceKm" fill="var(--color-distanceKm)" radius={[4, 4, 0, 0]} />
+        <Bar dataKey="distance" fill="var(--color-distanceKm)" radius={[4, 4, 0, 0]} />
       </BarChart>
     </ChartContainer>
   );

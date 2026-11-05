@@ -28,8 +28,9 @@ function numeric(samples: unknown[] | undefined): number[] | null {
  *
  * Deliberately computed rather than read from the upstream lap data: COROS laps
  * depend on how the watch was configured (manual laps, custom autolap), so they
- * are not comparable across runs. Split boundaries are interpolated between
- * samples, and heart rate is averaged over the samples inside each split.
+ * are not comparable across runs. Workout steps live on the Training tab
+ * instead. Split boundaries are interpolated between samples, and heart rate
+ * is averaged over the samples inside each split.
  */
 export function computeSplits(
   distanceSamples: unknown[] | undefined,

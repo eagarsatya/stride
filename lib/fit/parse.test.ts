@@ -156,6 +156,22 @@ describe("messagesToParsed", () => {
         positionLong: 106.9,
       },
     ],
+    lapMesgs: [
+      {
+        totalDistance: 400,
+        totalTimerTime: 80,
+        avgSpeed: 5,
+        intensity: 5,
+        avgHeartRate: 174,
+      },
+      {
+        totalDistance: 200,
+        totalTimerTime: 90,
+        avgSpeed: 2.22,
+        intensity: 1,
+        avgHeartRate: 140,
+      },
+    ],
   } satisfies FitMessages;
 
   it("maps a COROS run session onto dashboard fields", () => {
@@ -177,6 +193,9 @@ describe("messagesToParsed", () => {
     expect(summary.hasGps).toBe(true);
     expect(summary.streamTypes).toContain("latlng");
     expect(result.activity.raw.source).toBe("fit");
+    expect(result.activity.trainingSteps).toHaveLength(2);
+    expect(result.activity.trainingSteps[0].type).toBe("interval");
+    expect(result.activity.trainingSteps[1].type).toBe("rest");
   });
 
   it("rejects a cycling session", () => {

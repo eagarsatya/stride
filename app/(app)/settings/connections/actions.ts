@@ -5,7 +5,7 @@ import { revalidatePath } from "next/cache";
 import { z } from "zod";
 
 import { db } from "@/db";
-import { activities, connections, wellness } from "@/db/schema/app";
+import { activities, connections, userSettings, wellness } from "@/db/schema/app";
 import type { ActionState } from "@/lib/action-state";
 import { INTERVALS_PROVIDER, getConnection } from "@/lib/connections";
 import { seal } from "@/lib/crypto";
@@ -14,6 +14,7 @@ import { describeIntervalsError } from "@/lib/intervals/errors";
 import { requireUser } from "@/lib/session";
 import { importFitFilesForUser } from "@/lib/fit/import";
 import { NotConnectedError, SyncBusyError, runSync } from "@/lib/sync";
+import { isDistanceUnit, type DistanceUnit } from "@/lib/units";
 
 /**
  * Intervals.icu keys are short lowercase alphanumeric strings. The bounds are
@@ -27,11 +28,30 @@ const apiKeySchema = z
   .regex(/^[A-Za-z0-9._-]+$/, "That does not look like an Intervals.icu API key.");
 
 function revalidateAll() {
+  revalidatePath("/", "layout");
   revalidatePath("/settings/connections");
   revalidatePath("/dashboard");
   revalidatePath("/activities");
   revalidatePath("/trends");
   revalidatePath("/records");
+}
+
+export async function setDistanceUnit(unit: DistanceUnit): Promise<ActionState> {
+  const user = await requireUser();
+  if (!isDistanceUnit(unit)) {
+    return { status: "error", message: "Unknown distance unit." };
+  }
+
+  await db
+    .insert(userSettings)
+    .values({ userId: user.id, distanceUnit: unit })
+    .onConflictDoUpdate({
+      target: userSettings.userId,
+      set: { distanceUnit: unit, updatedAt: new Date() },
+    });
+
+  revalidateAll();
+  return { status: "success" };
 }
 
 export async function connectIntervals(

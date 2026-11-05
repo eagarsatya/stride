@@ -31,6 +31,32 @@ export function addDays(date: Date, days: number): Date {
   return result;
 }
 
+const ISO_DAY = /^(\d{4})-(\d{2})-(\d{2})$/;
+
+/** Accepts a calendar day and rejects values JS would otherwise roll over. */
+export function parseIsoDay(value: string | null | undefined): string | null {
+  if (!value) return null;
+  const match = ISO_DAY.exec(value);
+  if (!match) return null;
+
+  const year = Number(match[1]);
+  const month = Number(match[2]);
+  const day = Number(match[3]);
+  const date = new Date(year, month - 1, day);
+  if (date.getFullYear() !== year || date.getMonth() !== month - 1 || date.getDate() !== day) {
+    return null;
+  }
+
+  return isoDay(date);
+}
+
+export function nextIsoDay(iso: string): string {
+  const parsed = parseIsoDay(iso);
+  if (!parsed) return iso;
+  const [year, month, day] = parsed.split("-").map(Number);
+  return isoDay(new Date(year, month - 1, day + 1));
+}
+
 export type Totals = {
   runs: number;
   distanceM: number;
@@ -308,9 +334,41 @@ export const ACTIVITY_RANGES = {
   "90d": { label: "Last 90 days", days: 90 },
   "1y": { label: "Last 12 months", days: 365 },
   all: { label: "All time", days: null },
+  custom: { label: "Custom range", days: null },
 } as const;
 
 export type ActivityRange = keyof typeof ACTIVITY_RANGES;
+
+export type RangeBounds = {
+  from: string | null;
+  toExclusive: string | null;
+};
+
+/**
+ * Inclusive calendar-day window for the activity list. Presets only bound the
+ * start; a custom range may bound either end. `to` is stored inclusively in
+ * filters and converted to an exclusive timestamp here so a run at 23:59 still
+ * matches the last selected day.
+ */
+export function activityRangeBounds(
+  filters: Pick<ActivityFilters, "range" | "from" | "to">,
+  now = new Date(),
+): RangeBounds {
+  if (filters.range === "custom") {
+    let from = parseIsoDay(filters.from);
+    let to = parseIsoDay(filters.to);
+    if (from && to && from > to) {
+      [from, to] = [to, from];
+    }
+
+    return { from, toExclusive: to ? nextIsoDay(to) : null };
+  }
+
+  const days = ACTIVITY_RANGES[filters.range].days;
+  if (days == null) return { from: null, toExclusive: null };
+
+  return { from: isoDay(addDays(now, -days)), toExclusive: null };
+}
 
 export const ACTIVITY_SORTS = {
   date: { label: "Date", column: activities.startDateLocal },
@@ -325,6 +383,8 @@ export type ActivitySort = keyof typeof ACTIVITY_SORTS;
 
 export type ActivityFilters = {
   range: ActivityRange;
+  from: string | null;
+  to: string | null;
   type: string;
   raceOnly: boolean;
   sort: ActivitySort;
@@ -335,6 +395,8 @@ export type ActivityFilters = {
 
 export const DEFAULT_FILTERS: ActivityFilters = {
   range: "90d",
+  from: null,
+  to: null,
   type: "all",
   raceOnly: false,
   sort: "date",
@@ -350,9 +412,12 @@ export async function getActivities(
 ): Promise<{ items: RunListItem[]; total: number; pageCount: number }> {
   const conditions = [eq(activities.userId, userId)];
 
-  const days = ACTIVITY_RANGES[filters.range].days;
-  if (days !== null) {
-    conditions.push(sql`${activities.startDateLocal} >= ${isoDay(addDays(now, -days))}::timestamp`);
+  const { from, toExclusive } = activityRangeBounds(filters, now);
+  if (from) {
+    conditions.push(sql`${activities.startDateLocal} >= ${from}::timestamp`);
+  }
+  if (toExclusive) {
+    conditions.push(sql`${activities.startDateLocal} < ${toExclusive}::timestamp`);
   }
 
   if (filters.type !== "all") {

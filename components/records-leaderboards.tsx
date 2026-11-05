@@ -26,9 +26,12 @@ import {
   formatElevation,
   formatKm,
   formatPace,
+  formatSignedDistance,
   formatSignedDuration,
+  formatSignedElevation,
 } from "@/lib/format";
 import { PR_DISTANCES, PR_LABELS, PR_SHORT_LABELS, type PersonalRecord } from "@/lib/records";
+import type { DistanceUnit } from "@/lib/units";
 import { cn } from "@/lib/utils";
 
 const MONTH_FORMAT = new Intl.DateTimeFormat("en-GB", { month: "short", year: "numeric" });
@@ -37,20 +40,6 @@ function formatMonthKey(key: string): string {
   const [year, month] = key.split("-");
   if (!year || !month) return key;
   return MONTH_FORMAT.format(new Date(Number(year), Number(month) - 1, 1));
-}
-
-function formatSignedKm(metres: number): string {
-  const rounded = Number((metres / 1000).toFixed(1));
-  if (rounded === 0) return "0 km";
-  const sign = rounded > 0 ? "+" : "−";
-  return `${sign}${Math.abs(rounded).toFixed(1)} km`;
-}
-
-function formatSignedElevation(metres: number): string {
-  const rounded = Math.round(metres);
-  if (rounded === 0) return "0 m";
-  const sign = rounded > 0 ? "+" : "−";
-  return `${sign}${Math.abs(rounded).toLocaleString("en-US")} m`;
 }
 
 function Rank({ n }: { n: number }) {
@@ -100,12 +89,14 @@ export function RecordsLeaderboards({
   biggestWeeks,
   biggestMonths,
   mostElevation,
+  unit,
 }: {
   personalRecordLists: Record<string, PersonalRecord[]>;
   longestRuns: LongestRun[];
   biggestWeeks: VolumePeriod[];
   biggestMonths: VolumePeriod[];
   mostElevation: ElevationRecord[];
+  unit: DistanceUnit;
 }) {
   const prTabs = PR_DISTANCES.filter((distance) => personalRecordLists[String(distance)]?.length);
   const milestoneTabs = (
@@ -189,7 +180,7 @@ export function RecordsLeaderboards({
                               {formatDuration(record.timeS)}
                             </TableCell>
                             <TableCell className="text-right font-mono tabular-nums">
-                              {formatPace((record.timeS / record.distanceM) * 1000)}
+                              {formatPace((record.timeS / record.distanceM) * 1000, unit)}
                             </TableCell>
                             <TableCell className="hidden text-right sm:table-cell">
                               <Behind
@@ -262,20 +253,24 @@ export function RecordsLeaderboards({
                             {formatDate(run.date)}
                           </TableCell>
                           <TableCell className="text-right font-mono tabular-nums">
-                            {formatKm(run.distanceM, 2)}
+                            {formatKm(run.distanceM, 2, unit)}
                           </TableCell>
                           <TableCell className="hidden text-right font-mono tabular-nums sm:table-cell">
                             {formatDuration(run.movingTimeS)}
                           </TableCell>
                           <TableCell className="text-right font-mono tabular-nums">
-                            {formatPace(run.paceSPerKm)}
+                            {formatPace(run.paceSPerKm, unit)}
                           </TableCell>
                           <TableCell className="hidden text-right md:table-cell">
                             <Behind
                               value={
                                 index === 0
                                   ? null
-                                  : formatSignedKm(run.distanceM - longestRuns[0].distanceM)
+                                  : formatSignedDistance(
+                                      run.distanceM - longestRuns[0].distanceM,
+                                      1,
+                                      unit,
+                                    )
                               }
                             />
                           </TableCell>
@@ -288,13 +283,23 @@ export function RecordsLeaderboards({
 
               {biggestWeeks.length > 0 ? (
                 <TabsContent value="weeks" className="mt-4">
-                  <VolumeTable rows={biggestWeeks} label="Week of" formatKey={formatDate} />
+                  <VolumeTable
+                    rows={biggestWeeks}
+                    label="Week of"
+                    formatKey={formatDate}
+                    unit={unit}
+                  />
                 </TabsContent>
               ) : null}
 
               {biggestMonths.length > 0 ? (
                 <TabsContent value="months" className="mt-4">
-                  <VolumeTable rows={biggestMonths} label="Month" formatKey={formatMonthKey} />
+                  <VolumeTable
+                    rows={biggestMonths}
+                    label="Month"
+                    formatKey={formatMonthKey}
+                    unit={unit}
+                  />
                 </TabsContent>
               ) : null}
 
@@ -331,10 +336,10 @@ export function RecordsLeaderboards({
                             {formatDate(run.date)}
                           </TableCell>
                           <TableCell className="text-right font-mono tabular-nums">
-                            {formatElevation(run.elevationM)}
+                            {formatElevation(run.elevationM, unit)}
                           </TableCell>
                           <TableCell className="hidden text-right font-mono tabular-nums sm:table-cell">
-                            {formatKm(run.distanceM, 2)}
+                            {formatKm(run.distanceM, 2, unit)}
                           </TableCell>
                           <TableCell className="hidden text-right md:table-cell">
                             <Behind
@@ -343,6 +348,7 @@ export function RecordsLeaderboards({
                                   ? null
                                   : formatSignedElevation(
                                       run.elevationM - mostElevation[0].elevationM,
+                                      unit,
                                     )
                               }
                             />
@@ -365,10 +371,12 @@ function VolumeTable({
   rows,
   label,
   formatKey,
+  unit,
 }: {
   rows: VolumePeriod[];
   label: string;
   formatKey: (key: string) => string;
+  unit: DistanceUnit;
 }) {
   return (
     <Table>
@@ -389,14 +397,18 @@ function VolumeTable({
             </TableCell>
             <TableCell className="font-medium">{formatKey(row.key)}</TableCell>
             <TableCell className="text-right font-mono tabular-nums">
-              {formatKm(row.distanceM)}
+              {formatKm(row.distanceM, 1, unit)}
             </TableCell>
             <TableCell className="text-muted-foreground hidden text-right font-mono tabular-nums sm:table-cell">
               {row.runs}
             </TableCell>
             <TableCell className="hidden text-right sm:table-cell">
               <Behind
-                value={index === 0 ? null : formatSignedKm(row.distanceM - rows[0].distanceM)}
+                value={
+                  index === 0
+                    ? null
+                    : formatSignedDistance(row.distanceM - rows[0].distanceM, 1, unit)
+                }
               />
             </TableCell>
           </TableRow>

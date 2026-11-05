@@ -12,6 +12,7 @@ import {
   activityDetailSchema,
   activityListSchema,
   activitySchema,
+  intervalsDtoSchema,
   profileSchema,
   resolveAthlete,
   streamListSchema,
@@ -19,6 +20,7 @@ import {
   wellnessSchema,
   type IntervalsActivity,
   type IntervalsActivityDetail,
+  type IntervalsDto,
   type IntervalsStream,
   type IntervalsWellness,
 } from "./schemas";
@@ -248,6 +250,10 @@ export class IntervalsClient {
     return this.fetchParsed(`/activity/${activityId}`, activityDetailSchema, {
       intervals: true,
     });
+  }
+
+  async getIntervals(activityId: string): Promise<IntervalsDto> {
+    return this.fetchParsed(`/activity/${activityId}/intervals`, intervalsDtoSchema);
   }
 
   async getStreams(

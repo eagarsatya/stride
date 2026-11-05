@@ -7,6 +7,7 @@ import {
 } from "@garmin/fitsdk";
 
 import { speedToPace } from "@/lib/intervals/map";
+import { mapFitLaps, type TrainingStep } from "@/lib/training";
 
 const SEMICIRCLE = 180 / Math.pow(2, 31);
 const COROS_MANUFACTURER = new Set(["coros", "294"]);
@@ -51,6 +52,7 @@ export type ParsedFitSummary = {
 export type ParsedFitActivity = {
   summary: ParsedFitSummary;
   streams: Array<{ type: string; data: unknown[] }>;
+  trainingSteps: TrainingStep[];
   raw: Record<string, unknown>;
 };
 
@@ -388,6 +390,7 @@ export function messagesToParsed(messages: FitMessages): FitParseResult {
     activity: {
       summary,
       streams,
+      trainingSteps: mapFitLaps(messages.lapMesgs),
       raw: compactRaw(messages, session),
     },
   };

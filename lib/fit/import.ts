@@ -16,6 +16,7 @@ import { FIT_SOURCE, parseFitFile, type ParsedFitActivity } from "@/lib/fit/pars
 import { expandUploads, MAX_FIT_FILES, type FitPayload } from "@/lib/fit/zip";
 import { mapStreams } from "@/lib/intervals/map";
 import { computeBestEfforts } from "@/lib/records";
+import { isStructuredTraining, type TrainingStep } from "@/lib/training";
 
 export { MAX_FIT_FILES, MAX_FIT_BYTES, MAX_ZIP_BYTES } from "@/lib/fit/zip";
 
@@ -54,8 +55,17 @@ function toNewActivity(userId: string, hash: string, parsed: ParsedFitActivity):
     deviceName: summary.deviceName,
     streamTypes: summary.streamTypes,
     hasGps: summary.hasGps,
+    ...trainingFields(parsed.trainingSteps),
     raw: parsed.raw,
   };
+}
+
+function trainingFields(steps: TrainingStep[]): {
+  trainingSteps?: TrainingStep[];
+  trainingStepsAt?: Date;
+} {
+  if (!isStructuredTraining(steps)) return {};
+  return { trainingSteps: steps, trainingStepsAt: new Date() };
 }
 
 function summaryAsRecord(parsed: ParsedFitActivity): Record<string, unknown> {
@@ -177,10 +187,13 @@ async function enrichExisting(existing: StoredActivity, hash: string, parsed: Pa
     summaryAsRecord(parsed),
   );
 
+  const training = existing.trainingStepsAt ? {} : trainingFields(parsed.trainingSteps);
+
   await db
     .update(activities)
     .set({
       ...(patch as Partial<StoredActivity>),
+      ...training,
       fitFileHash: hash,
       syncedAt: new Date(),
     })

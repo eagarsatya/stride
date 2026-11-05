@@ -4,8 +4,9 @@ import Link from "next/link";
 import { Badge } from "@/components/ui/badge";
 import { formatDateTime, formatKm, formatPaceWithUnit } from "@/lib/format";
 import type { RunListItem } from "@/lib/queries";
+import type { DistanceUnit } from "@/lib/units";
 
-export function RunList({ runs }: { runs: RunListItem[] }) {
+export function RunList({ runs, unit }: { runs: RunListItem[]; unit: DistanceUnit }) {
   if (runs.length === 0) {
     return <p className="text-muted-foreground text-sm">No runs yet.</p>;
   }
@@ -51,10 +52,10 @@ export function RunList({ runs }: { runs: RunListItem[] }) {
 
             <div className="hidden shrink-0 text-right sm:block">
               <p className="font-mono text-sm font-medium tabular-nums">
-                {formatKm(run.distanceM)}
+                {formatKm(run.distanceM, 1, unit)}
               </p>
               <p className="text-muted-foreground font-mono text-xs tabular-nums">
-                {formatPaceWithUnit(run.paceSPerKm)}
+                {formatPaceWithUnit(run.paceSPerKm, unit)}
               </p>
             </div>
 
