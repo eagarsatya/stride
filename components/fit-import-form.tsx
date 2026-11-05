@@ -2,9 +2,10 @@
 
 import { Loader2, Upload } from "lucide-react";
 import { useRouter } from "next/navigation";
-import { useState, type ChangeEvent, type FormEvent } from "react";
+import { useRef, useState, type ChangeEvent, type FormEvent } from "react";
 import { toast } from "sonner";
 
+import { useBusy } from "@/components/busy-overlay";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -16,8 +17,10 @@ export function FitImportForm({
   importFitFiles: (formData: FormData) => Promise<ActionState>;
 }) {
   const router = useRouter();
+  const { show, hide } = useBusy();
   const [pending, setPending] = useState(false);
   const [fileCount, setFileCount] = useState(0);
+  const locked = useRef(false);
 
   function onFilesChange(event: ChangeEvent<HTMLInputElement>) {
     setFileCount(event.target.files?.length ?? 0);
@@ -25,11 +28,17 @@ export function FitImportForm({
 
   async function onSubmit(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
+    if (locked.current) return;
 
     const form = event.currentTarget;
     const formData = new FormData(form);
 
+    locked.current = true;
     setPending(true);
+    show({
+      message: "Importing FIT files…",
+      detail: "Large zips can take a while. Please keep this tab open.",
+    });
     try {
       const result = await importFitFiles(formData);
       if (result.status === "error") toast.error(result.message);
@@ -40,7 +49,9 @@ export function FitImportForm({
     } catch {
       toast.error("Something went wrong. Check the server logs.");
     } finally {
+      hide();
       setPending(false);
+      locked.current = false;
     }
   }
 

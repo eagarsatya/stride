@@ -4,6 +4,7 @@ import { Loader2 } from "lucide-react";
 import { useState } from "react";
 import { toast } from "sonner";
 
+import { useBusy } from "@/components/busy-overlay";
 import { Button } from "@/components/ui/button";
 import { signIn } from "@/lib/auth-client";
 
@@ -39,14 +40,18 @@ export function SignInButton({
   size?: "default" | "sm" | "lg";
   className?: string;
 }) {
+  const { show, hide } = useBusy();
   const [pending, setPending] = useState(false);
 
   async function handleSignIn() {
+    if (pending) return;
     setPending(true);
+    show({ message: "Redirecting to Google…" });
     const { error } = await signIn.social({ provider: "google", callbackURL });
 
     // A successful call navigates away, so only failures land back here.
     if (error) {
+      hide();
       setPending(false);
       toast.error(error.message ?? "Could not start Google sign-in.");
     }

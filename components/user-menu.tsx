@@ -6,6 +6,7 @@ import { useRouter } from "next/navigation";
 import { useState } from "react";
 import { toast } from "sonner";
 
+import { useBusy } from "@/components/busy-overlay";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { Button } from "@/components/ui/button";
 import {
@@ -38,12 +39,16 @@ export function UserMenu({
   image?: string | null;
 }) {
   const router = useRouter();
+  const { show, hide } = useBusy();
   const [pending, setPending] = useState(false);
 
   async function handleSignOut() {
+    if (pending) return;
     setPending(true);
+    show({ message: "Signing out…" });
     const { error } = await signOut();
     if (error) {
+      hide();
       setPending(false);
       toast.error(error.message ?? "Could not sign out.");
       return;

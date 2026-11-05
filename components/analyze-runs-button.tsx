@@ -6,6 +6,7 @@ import { useRef, useState } from "react";
 import { toast } from "sonner";
 
 import { analyzeRuns } from "@/app/(app)/records/actions";
+import { useBusy } from "@/components/busy-overlay";
 import { Button } from "@/components/ui/button";
 import { Progress } from "@/components/ui/progress";
 
@@ -14,6 +15,7 @@ const MAX_BATCHES = 60;
 
 export function AnalyzeRunsButton({ pending: initialPending }: { pending: number }) {
   const router = useRouter();
+  const { show, hide, update } = useBusy();
   const [running, setRunning] = useState(false);
   const [remaining, setRemaining] = useState(initialPending);
   const [done, setDone] = useState(0);
@@ -22,32 +24,50 @@ export function AnalyzeRunsButton({ pending: initialPending }: { pending: number
   const total = initialPending || 1;
 
   async function start() {
+    if (running) return;
+
     setRunning(true);
     setDone(0);
     cancelled.current = false;
+    show({
+      message: "Analyzing runs…",
+      detail: `0 of ${total}`,
+      progress: 0,
+      onCancel: () => {
+        cancelled.current = true;
+        update({ message: "Stopping…", onCancel: undefined });
+      },
+    });
 
     let analyzedTotal = 0;
 
-    for (let batch = 0; batch < MAX_BATCHES; batch += 1) {
-      if (cancelled.current) break;
+    try {
+      for (let batch = 0; batch < MAX_BATCHES; batch += 1) {
+        if (cancelled.current) break;
 
-      const result = await analyzeRuns();
+        const result = await analyzeRuns();
 
-      if (result.status === "error") {
-        toast.error(result.message ?? "Analysis failed.");
-        break;
+        if (result.status === "error") {
+          toast.error(result.message ?? "Analysis failed.");
+          break;
+        }
+
+        analyzedTotal += result.analyzed;
+        setDone(analyzedTotal);
+        setRemaining(result.remaining);
+        update({
+          detail: `${analyzedTotal} of ${total} analyzed · ${result.remaining} remaining`,
+          progress: Math.min(100, (analyzedTotal / total) * 100),
+        });
+
+        // Nothing left, or nothing could be processed -- either way, stop.
+        if (result.remaining === 0 || result.analyzed === 0) break;
       }
-
-      analyzedTotal += result.analyzed;
-      setDone(analyzedTotal);
-      setRemaining(result.remaining);
-
-      // Nothing left, or nothing could be processed -- either way, stop.
-      if (result.remaining === 0 || result.analyzed === 0) break;
+    } finally {
+      hide();
+      setRunning(false);
+      router.refresh();
     }
-
-    setRunning(false);
-    router.refresh();
 
     if (!cancelled.current) {
       toast.success(`Analyzed ${analyzedTotal} runs.`);
