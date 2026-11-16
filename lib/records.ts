@@ -92,13 +92,53 @@ function toNumberSeries(samples: unknown[] | undefined): number[] | null {
 }
 
 /**
+ * Speeds below this (~1.8 km/h) are treated as stopped. Matches the usual
+ * running auto-pause threshold, so a traffic-light wait is not part of a PR.
+ */
+const MIN_MOVING_SPEED_MS = 0.5;
+
+/**
+ * Best efforts computed before this used elapsed (wall-clock) stream time.
+ * Cached analyses older than this are rebuilt as moving time.
+ */
+export const BEST_EFFORTS_MOVING_SINCE = new Date("2026-11-16T17:50:00.000Z");
+
+/**
+ * Convert an elapsed `time` stream into cumulative moving time by dropping
+ * samples where the athlete was not covering ground.
+ *
+ * GPS `time` is seconds from the start of the activity, including pauses and
+ * standing still. A watch pause shows up as a timestamp jump with almost no
+ * distance; a traffic light with the watch still recording shows up as
+ * repeated distance. Both are excluded so a 5K PR matches moving time.
+ */
+export function toMovingTime(distance: number[], elapsed: number[]): number[] {
+  const n = Math.min(distance.length, elapsed.length);
+  const moving = new Array<number>(n);
+  if (n === 0) return moving;
+
+  moving[0] = 0;
+  let acc = 0;
+
+  for (let i = 1; i < n; i += 1) {
+    const dt = elapsed[i] - elapsed[i - 1];
+    const dd = distance[i] - distance[i - 1];
+    if (dt > 0 && dd > 0 && dd / dt >= MIN_MOVING_SPEED_MS) acc += dt;
+    moving[i] = acc;
+  }
+
+  return moving;
+}
+
+/**
  * Fastest continuous effort over each PR distance, via a two-pointer sweep of
  * the cumulative distance stream.
  *
  * Both streams must be full resolution: running this on downsampled data would
  * quantise the window edges and report times that were never actually run.
  * Time is interpolated at the window boundary so a 5K PR is not rounded up to
- * the next GPS sample.
+ * the next GPS sample. Reported times are moving time: stops and watch pauses
+ * inside the window are not counted.
  */
 export function computeBestEfforts(
   distanceSamples: unknown[] | undefined,
@@ -106,14 +146,15 @@ export function computeBestEfforts(
   distances: readonly number[] = PR_DISTANCES,
 ): BestEfforts {
   const distance = toNumberSeries(distanceSamples);
-  const time = toNumberSeries(timeSamples);
+  const elapsed = toNumberSeries(timeSamples);
   const result: BestEfforts = {};
 
-  if (!distance || !time) return result;
+  if (!distance || !elapsed) return result;
 
-  const n = Math.min(distance.length, time.length);
+  const n = Math.min(distance.length, elapsed.length);
   if (n < 2) return result;
 
+  const time = toMovingTime(distance, elapsed);
   const total = distance[n - 1] - distance[0];
 
   for (const target of distances) {
@@ -143,8 +184,8 @@ export function computeBestEfforts(
       const trimmed =
         leadDistance > 0 ? (leadTime * Math.min(overshoot, leadDistance)) / leadDistance : 0;
 
-      const elapsed = segmentTime - trimmed;
-      if (elapsed > 0 && elapsed < best) best = elapsed;
+      const moving = segmentTime - trimmed;
+      if (moving > 0 && moving < best) best = moving;
     }
 
     if (Number.isFinite(best)) {

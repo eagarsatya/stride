@@ -4,6 +4,7 @@ import { db } from "@/db";
 import { activities } from "@/db/schema/app";
 import { addDays, isoDay } from "@/lib/queries";
 import { PR_DISTANCES, rankPersonalRecords, type PersonalRecord } from "@/lib/records";
+import { refreshStaleBestEfforts } from "@/lib/sync";
 
 export type { PersonalRecord };
 
@@ -194,6 +195,8 @@ export type RecordsSummary = {
 };
 
 export async function getRecords(userId: string): Promise<RecordsSummary> {
+  await refreshStaleBestEfforts(userId);
+
   const [efforts, counts, longest, elevation, weeks, months, races] = await Promise.all([
     db
       .select({
