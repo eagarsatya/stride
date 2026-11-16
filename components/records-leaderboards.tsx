@@ -117,7 +117,8 @@ export function RecordsLeaderboards({
           <CardHeader>
             <CardTitle>Distance records</CardTitle>
             <CardDescription>
-              Fastest ten efforts at each standard distance, from full-resolution streams.
+              Fastest ten efforts at each standard distance, using moving time from the
+              full-resolution streams.
             </CardDescription>
           </CardHeader>
           <CardContent>

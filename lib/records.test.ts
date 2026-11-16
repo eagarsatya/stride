@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 
-import { computeBestEfforts, rankPersonalRecords } from "./records";
+import { computeBestEfforts, rankPersonalRecords, toMovingTime } from "./records";
 
 /** Build distance/time streams for a run at a constant pace, sampled at 1 Hz. */
 function steadyRun(totalMetres: number, paceSPerKm: number) {
@@ -103,6 +103,61 @@ describe("computeBestEfforts", () => {
 
     expect(efforts["42195"]).toBeCloseTo(42.195 * 330, -1);
     expect(Object.keys(efforts)).toHaveLength(5);
+  });
+
+  it("excludes a mid-run stop from the effort time", () => {
+    // 400 m in 80 s, stand still for 40 s, then 600 m in 120 s.
+    const time: number[] = [];
+    const distance: number[] = [];
+    for (let t = 0; t <= 80; t += 1) {
+      time.push(t);
+      distance.push((t / 80) * 400);
+    }
+    for (let t = 81; t <= 120; t += 1) {
+      time.push(t);
+      distance.push(400);
+    }
+    for (let t = 121; t <= 240; t += 1) {
+      time.push(t);
+      distance.push(400 + ((t - 120) / 120) * 600);
+    }
+
+    const efforts = computeBestEfforts(distance, time, [1000]);
+    expect(efforts["1000"]).toBeCloseTo(200, 0);
+  });
+
+  it("excludes a watch pause that jumps the elapsed clock", () => {
+    // 500 m at 1 m/s, 60 s pause (timestamp jump, no distance), 500 m more.
+    const time: number[] = [];
+    const distance: number[] = [];
+    for (let t = 0; t <= 500; t += 1) {
+      time.push(t);
+      distance.push(t);
+    }
+    time.push(560);
+    distance.push(500);
+    for (let t = 1; t <= 500; t += 1) {
+      time.push(560 + t);
+      distance.push(500 + t);
+    }
+
+    const efforts = computeBestEfforts(distance, time, [1000]);
+    expect(efforts["1000"]).toBeCloseTo(1000, 0);
+    expect(efforts["1000"]).toBeLessThan(1030);
+  });
+});
+
+describe("toMovingTime", () => {
+  it("matches elapsed time when the athlete never stops", () => {
+    const elapsed = [0, 1, 2, 3, 4];
+    const distance = [0, 3, 6, 9, 12];
+    expect(toMovingTime(distance, elapsed)).toEqual([0, 1, 2, 3, 4]);
+  });
+
+  it("does not count time while distance is unchanged", () => {
+    const elapsed = [0, 1, 2, 3, 4];
+    const distance = [0, 3, 3, 3, 6];
+    expect(toMovingTime(distance, elapsed)).toEqual([0, 1, 1, 1, 2]);
   });
 });
 

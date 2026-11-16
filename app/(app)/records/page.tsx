@@ -80,9 +80,9 @@ export default async function RecordsPage() {
           </AlertTitle>
           <AlertDescription className="space-y-3">
             <p>
-              Distance records come from the full-resolution distance and time streams,
-              which are fetched per run and then cached. Analyzed runs also load instantly
-              on their detail page afterwards.
+              Distance records come from the full-resolution distance and time streams
+              (moving time, so stops are not counted), which are fetched per run and then
+              cached. Analyzed runs also load instantly on their detail page afterwards.
             </p>
             <AnalyzeRunsButton pending={records.pendingAnalysis} />
           </AlertDescription>

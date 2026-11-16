@@ -1,5 +1,5 @@
 import { addDays, differenceInCalendarDays, subDays, subMonths, subYears } from "date-fns";
-import { and, desc, eq, sql } from "drizzle-orm";
+import { and, desc, eq, isNotNull, lt, sql } from "drizzle-orm";
 
 import { db } from "@/db";
 import {
@@ -17,7 +17,7 @@ import { toApiDate, type IntervalsClient } from "@/lib/intervals/client";
 import { IntervalsApiError } from "@/lib/intervals/errors";
 import { mapActivity, mapStreams, mapWellness } from "@/lib/intervals/map";
 import { isRunType, usableStreams } from "@/lib/intervals/schemas";
-import { computeBestEfforts } from "@/lib/records";
+import { BEST_EFFORTS_MOVING_SINCE, computeBestEfforts } from "@/lib/records";
 import { mapIcuIntervals, type TrainingStep } from "@/lib/training";
 
 export const BACKFILL_YEARS = 3;
@@ -367,10 +367,11 @@ export async function ensureStreams(
     .limit(1);
 
   if (cached) {
-    // Streams cached before best efforts existed: derive them from the stored
-    // (downsampled) samples rather than spending another API request. Marking
-    // the row either way is what stops `analyzeBestEfforts` from looping.
-    if (!activity.bestEffortsAt) {
+    // Streams cached before best efforts existed, or scored with elapsed time:
+    // derive moving-time PRs from the stored samples rather than spending
+    // another API request. Marking the row either way is what stops
+    // `analyzeBestEfforts` from looping.
+    if (!activity.bestEffortsAt || activity.bestEffortsAt < BEST_EFFORTS_MOVING_SINCE) {
       await markAnalyzed(activity.id, computeBestEfforts(cached.data.distance, cached.data.time));
     }
     return cached.data;
@@ -485,6 +486,42 @@ async function markAnalyzed(activityId: string, bestEfforts: Record<string, numb
     .update(activities)
     .set({ bestEfforts, bestEffortsAt: new Date() })
     .where(eq(activities.id, activityId));
+}
+
+/**
+ * Rebuild distance PRs that were scored with elapsed stream time. Cached
+ * streams are recomputed in place; runs with no streams are queued so the
+ * usual analyze pass can fetch them.
+ */
+export async function refreshStaleBestEfforts(userId: string): Promise<number> {
+  const stale = await db
+    .select({
+      id: activities.id,
+      data: activityStreams.data,
+    })
+    .from(activities)
+    .leftJoin(activityStreams, eq(activityStreams.activityId, activities.id))
+    .where(
+      and(
+        eq(activities.userId, userId),
+        isNotNull(activities.bestEffortsAt),
+        lt(activities.bestEffortsAt, BEST_EFFORTS_MOVING_SINCE),
+      ),
+    );
+
+  if (stale.length === 0) return 0;
+
+  let updated = 0;
+  for (const row of stale) {
+    if (row.data?.distance && row.data?.time) {
+      await markAnalyzed(row.id, computeBestEfforts(row.data.distance, row.data.time));
+    } else {
+      await db.update(activities).set({ bestEffortsAt: null }).where(eq(activities.id, row.id));
+    }
+    updated += 1;
+  }
+
+  return updated;
 }
 
 /**
